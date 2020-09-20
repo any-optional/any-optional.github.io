@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.0.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Mist","version":"7.8.0","exturl":false,"sidebar":{"position":"right","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":false,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="什么是AliasFor&amp;emsp;&amp;emsp;AliasFor是Spring 4.2引入的注解，它提供了给注解中的属性定义别名的功能。所谓注解中的属性，指的是注解中定义的方法，因为它无参并且有返回值。 &amp;emsp;&amp;emsp;Java文档定义了几个术语来表示注解A和被标注的元素E之间的关系：  direct present：注解A是运行时可见的，并且A直接标注在E上，比如E是一个类，A标注在这个类">
+<meta property="og:type" content="article">
+<meta property="og:title" content="AliasFor的实现原理">
+<meta property="og:url" content="http://example.com/2020/09/14/alias-for/index.html">
+<meta property="og:site_name" content="In the garden of sinners">
+<meta property="og:description" content="什么是AliasFor&amp;emsp;&amp;emsp;AliasFor是Spring 4.2引入的注解，它提供了给注解中的属性定义别名的功能。所谓注解中的属性，指的是注解中定义的方法，因为它无参并且有返回值。 &amp;emsp;&amp;emsp;Java文档定义了几个术语来表示注解A和被标注的元素E之间的关系：  direct present：注解A是运行时可见的，并且A直接标注在E上，比如E是一个类，A标注在这个类">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2020-09-14T14:15:34.000Z">
+<meta property="article:modified_time" content="2020-09-20T08:17:31.254Z">
+<meta property="article:author" content="Archer">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2020/09/14/alias-for/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>AliasFor的实现原理 | In the garden of sinners</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">In the garden of sinners</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">空之境界</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+
+  <a href="https://github.com/any-optional" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2020/09/14/alias-for/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yml.png">
+      <meta itemprop="name" content="Archer">
+      <meta itemprop="description" content="动漫、代码和篮球，就是人生。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="In the garden of sinners">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          AliasFor的实现原理
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-09-14 22:15:34" itemprop="dateCreated datePublished" datetime="2020-09-14T22:15:34+08:00">2020-09-14</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Spring-Framework/" itemprop="url" rel="index"><span itemprop="name">Spring Framework</span></a>
+                </span>
+            </span>
+
+          
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="fa fa-comment-o"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2020/09/14/alias-for/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2020/09/14/alias-for/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="什么是AliasFor"><a href="#什么是AliasFor" class="headerlink" title="什么是AliasFor"></a>什么是AliasFor</h3><p>&emsp;&emsp;<code>AliasFor</code>是Spring 4.2引入的注解，它提供了给注解中的属性定义别名的功能。所谓注解中的属性，指的是注解中定义的方法，因为它无参并且有返回值。</p>
+<p>&emsp;&emsp;Java文档定义了几个术语来表示注解<code>A</code>和被标注的元素<code>E</code>之间的关系：</p>
+<ul>
+<li><code>direct present</code>：注解<code>A</code>是运行时可见的，并且<code>A</code>直接标注在<code>E</code>上，比如<code>E</code>是一个类，<code>A</code>标注在这个类上</li>
+<li><code>indirect present</code>：满足<code>direct present</code>语义，但是限定注解<code>A</code>必须是<code>repeatable</code>的</li>
+<li><code>present</code>：满足<code>direct present</code>语义，或注解<code>A</code>是<code>inheritable</code>的且<code>E</code>是一个类，<code>A</code>标注在<code>E</code>的基类上</li>
+<li><code>associated</code>：满足<code>present</code>或<code>indirect present</code>的语义</li>
+</ul>
+<a id="more"></a>
+
+<p>&emsp;&emsp;随着<code>AliasFor</code>注解的引入，Spring在Java标准之上延伸出了一个新的概念——<code>meta present</code>。介绍<code>meta present</code>之前，简单说一下什么是<code>meta annotation</code>。顾名思义，元注解（<code>meta annotation</code>）就是注解的注解，它作用在别的注解之上，通过它可以合成新的注解，比如<code>Component</code>就是一个元注解，通过它衍生出了<code>Controller</code>。</p>
+<ul>
+<li><code>meta present</code>：如果注解<code>A</code>作为元注解作用在注解<code>B</code>上，并且注解<code>B</code>和元素<code>E</code>之间满足<code>present</code>语义，就说注解<code>A meta present</code>于元素<code>E</code>；注解<code>A meta present</code>于注解<code>B</code>是指注解<code>A</code>和注解<code>B</code>之间满足<code>direct present</code>或<code>meta present</code>语义。</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Target(ElementType.METHOD)</span></span><br><span class="line"><span class="meta">@Retention(RetentionPolicy.RUNTIME)</span></span><br><span class="line"><span class="keyword">public</span> <span class="meta">@interface</span> AliasFor &#123;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * attribute的别名，用来简化编码</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="meta">@AliasFor(&quot;attribute&quot;)</span></span><br><span class="line">    <span class="function">String <span class="title">value</span><span class="params">()</span> <span class="keyword">default</span> &quot;&quot;</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 要指向的属性名</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="meta">@AliasFor(&quot;value&quot;)</span></span><br><span class="line">    <span class="function">String <span class="title">attribute</span><span class="params">()</span> <span class="keyword">default</span> &quot;&quot;</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 包含源属性定义的注解，Annotation.class表示当前注解</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    Class&lt;? extends Annotation&gt; annotation() <span class="keyword">default</span> Annotation.class;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;基于<code>AliasFor</code>的使用方式，分为<a name="explicit_aliases">显式别名</a>（<code>explicit aliases</code>）和<a name="implicit_aliases">隐式别名</a>（<code>implicit aliases</code>）两种情况：</p>
+<ol>
+<li>显式别名也有两种情况：<ol>
+<li>在同一个注解中的不同属性上使用时（对应<code>AliasFor#annotation()</code>使用默认值），表示它们是可互换的（<code>interchangeable</code>），比如<code>AliasFor</code>注解本身的<code>attribute</code>和<code>value</code>属性</li>
+<li>显式设置了<code>AliasFor#annotation()</code>属性（相当于指定元注解），那么当前注解中的属性就作为元注解中属性的别名，比如<code>Controller#value()</code>是<code>Component#value()</code>的别名</li>
+</ol>
+</li>
+<li>隐式别名：如果显式设置了<code>AliasFor#annotation()</code>属性，并且当前注解中有多个属性指向元注解中的某个属性（可以是直接指向或者通过传递指向），那么这几个属性互为隐式别名</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 自定义注解MyComponent的value和beanName互为隐式别名，</span></span><br><span class="line"><span class="comment"> * 因为它们都指向元注解Component的value属性</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="meta">@Component</span></span><br><span class="line"><span class="meta">@Target(ElementType.METHOD)</span></span><br><span class="line"><span class="meta">@Retention(RetentionPolicy.RUNTIME)</span></span><br><span class="line"><span class="keyword">public</span> <span class="meta">@interface</span> MyComponent &#123;</span><br><span class="line">  <span class="meta">@AliasFor(annotation = Component.class)</span></span><br><span class="line">  <span class="function">String <span class="title">value</span><span class="params">()</span> <span class="keyword">default</span> &quot;&quot;</span>;</span><br><span class="line">  </span><br><span class="line">  <span class="meta">@AliasFor(attribute = &quot;value&quot;, annotation = Component.class)</span></span><br><span class="line">  <span class="function">String <span class="title">beanName</span><span class="params">()</span> <span class="keyword">default</span> &quot;&quot;</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="为什么要引入AliasFor"><a href="#为什么要引入AliasFor" class="headerlink" title="为什么要引入AliasFor"></a>为什么要引入AliasFor</h3><p>&emsp;&emsp;Java语言中，注解是不能被继承的。这意味着，在组合注解时，我们无法覆盖元注解中的属性，灵活性很差。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 使用元注解Configuration和ImportResource创建了组合</span></span><br><span class="line"><span class="comment"> * 注解ImportResourceConfiguration，但是我们无法自由</span></span><br><span class="line"><span class="comment"> * 指定配置文件的位置。</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="meta">@Target(ElementType.METHOD)</span></span><br><span class="line"><span class="meta">@Retention(RetentionPolicy.RUNTIME)</span></span><br><span class="line"><span class="meta">@ImportResource(&quot;classpath:test.properties&quot;)</span></span><br><span class="line"><span class="keyword">public</span> <span class="meta">@interface</span> ImportResourceConfiguration &#123;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>引入<code>AliasFor</code>以后，让原本不存在层次结构的注解体系也拥有了层次的概念。换个角度思考一下，<code>AliasFor</code>的别名机制其实是一种属性重写，因为作为别名的属性是可以无缝替换源属性的，和继承中重写的概念很像不是吗？</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 使用AliasFor改造以后，组合注解的value属性重写了</span></span><br><span class="line"><span class="comment"> * 元注解ImportResource注解的value属性，通过设置</span></span><br><span class="line"><span class="comment"> * 重写的属性就可以自由指定配置文件的位置了</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="meta">@Target(ElementType.METHOD)</span></span><br><span class="line"><span class="meta">@Retention(RetentionPolicy.RUNTIME)</span></span><br><span class="line"><span class="meta">@ImportResource</span></span><br><span class="line"><span class="keyword">public</span> <span class="meta">@interface</span> ImportResourceConfiguration &#123;</span><br><span class="line">  <span class="comment">/**</span></span><br><span class="line"><span class="comment">   * 对value的设置会反应到ImportResource#value()</span></span><br><span class="line"><span class="comment">   */</span></span><br><span class="line">  <span class="meta">@AliasFor(attribute = &quot;value&quot;, annotation = ImportResource.class)</span></span><br><span class="line">  String[] value() <span class="keyword">default</span> &#123;&#125;;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>AliasFor</code>还可以用来简化编码，当我们让注解的<code>value</code>属性和长的、更具描述性的属性互为别名以后，就能够使用注解的简写形式了。<code>AliasFor</code>注解本身就是这么做的，不指定<code>AliasFor#annotation()</code>的情况下<code>@AliasFor(&quot;someAttribute&quot;)</code>和<code>@AliasFor(attribute = &quot;someAttribute&quot;)</code>是等价的。</p>
+<h3 id="AliasFor的语义是如何实现的"><a href="#AliasFor的语义是如何实现的" class="headerlink" title="AliasFor的语义是如何实现的"></a>AliasFor的语义是如何实现的</h3><p>&emsp;&emsp;天下没有免费的午餐，只定义<code>AliasFor</code>注解并不会自动获得其语义，接下来让我们一起探究一下<code>Spring 5.1.8</code>中是如何实现<code>AliasFor</code>语义的。<code>AliasFor</code>注解的JavaDoc上有提到，其语义生效的前提是相关注解必须通过<code>AnnotationUtils</code>中的工具方法来加载，转到<code>AnnotationUtils</code>中定义的第一个方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">  <span class="comment">/**</span></span><br><span class="line"><span class="comment">   * 在指定的注解上获取指定类型的某个注解：</span></span><br><span class="line"><span class="comment">   *  1. 指定注解的类型就是指定类型，返回指定注解本身</span></span><br><span class="line"><span class="comment">   *  2. 指定注解上标注了指定类型的注解，返回此元注解</span></span><br><span class="line"><span class="comment">   * 注意，此方法只支持一级元注解，也就是元注解是直接标注在给定注解上的情况，</span></span><br><span class="line"><span class="comment">   * 如果需要支持任意层级，使用find开头的系列方法。</span></span><br><span class="line"><span class="comment">   */</span></span><br><span class="line"><span class="meta">@Nullable</span></span><br><span class="line">  <span class="meta">@SuppressWarnings(&quot;unchecked&quot;)</span></span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">static</span> &lt;A extends Annotation&gt; <span class="function">A <span class="title">getAnnotation</span><span class="params">(Annotation annotation, Class&lt;A&gt; annotationType)</span> </span>&#123;</span><br><span class="line">      <span class="comment">// annotation就是要寻找的注解</span></span><br><span class="line">      <span class="keyword">if</span> (annotationType.isInstance(annotation)) &#123;</span><br><span class="line">          <span class="comment">// 对annotation进行加强，使之可以处理标注了AliasFor的情况</span></span><br><span class="line">          <span class="keyword">return</span> synthesizeAnnotation((A) annotation);</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="comment">// annotation不是要寻找的注解</span></span><br><span class="line">      Class&lt;? extends Annotation&gt; annotatedElement = annotation.annotationType();</span><br><span class="line">      <span class="keyword">try</span> &#123;</span><br><span class="line">          <span class="comment">// 查找它的直接元注解</span></span><br><span class="line">          A metaAnnotation = annotatedElement.getAnnotation(annotationType);</span><br><span class="line">          <span class="comment">// 对注解进行增强</span></span><br><span class="line">          <span class="keyword">return</span> metaAnnotation != <span class="keyword">null</span> ? synthesizeAnnotation(metaAnnotation, annotatedElement) : <span class="keyword">null</span>;</span><br><span class="line">      &#125; <span class="keyword">catch</span> (Throwable e) &#123;</span><br><span class="line">          handleIntrospectionFailure(annotatedElement, e);</span><br><span class="line">          <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">      &#125;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>很明显，<code>AliasFor</code>的黑魔法隐藏在<code>synthesizeAnnotation(...)</code>方法中。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 对传入的annotation进行增强，原理是使用动态代理，</span></span><br><span class="line"><span class="comment"> * 这么做的目的是为了使其满足AliasFor的语义</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@param</span> annotation 要被包装的注解</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@param</span> annotatedElement 标注了传入的annotation的元素，不为空说明是meta present</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="meta">@SuppressWarnings(&quot;unchecked&quot;)</span></span><br><span class="line"><span class="keyword">static</span> &lt;A extends Annotation&gt; <span class="function">A <span class="title">synthesizeAnnotation</span><span class="params">(A annotation, <span class="meta">@Nullable</span> Object annotatedElement)</span> </span>&#123;</span><br><span class="line">    <span class="comment">// 如果已经被代理过了</span></span><br><span class="line">    <span class="comment">// 或者是java标准注解</span></span><br><span class="line">    <span class="keyword">if</span> (annotation <span class="keyword">instanceof</span> SynthesizedAnnotation ||</span><br><span class="line">            hasPlainJavaAnnotationsOnly(annotatedElement)) &#123;</span><br><span class="line">        <span class="keyword">return</span> annotation;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 获取表示这个注解的接口</span></span><br><span class="line">    Class&lt;? extends Annotation&gt; annotationType = annotation.annotationType();</span><br><span class="line">    <span class="comment">// 不能合成直接返回原注解</span></span><br><span class="line">    <span class="keyword">if</span> (!isSynthesizable(annotationType)) &#123;</span><br><span class="line">        <span class="keyword">return</span> annotation;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 创建动态代理来保证AliasFor语义</span></span><br><span class="line">    DefaultAnnotationAttributeExtractor extractor = <span class="keyword">new</span> DefaultAnnotationAttributeExtractor(annotation, annotatedElement);</span><br><span class="line">    InvocationHandler handler = <span class="keyword">new</span> SynthesizedAnnotationInvocationHandler(extractor);</span><br><span class="line">    Class&lt;?&gt;[] interfaces = <span class="keyword">new</span> Class&lt;?&gt;[]&#123;annotationType, SynthesizedAnnotation.class&#125;;</span><br><span class="line">    <span class="keyword">return</span> (A) Proxy.newProxyInstance(annotation.getClass().getClassLoader(), interfaces, handler);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到，Spring是使用JDK动态代理来实现<code>AliasFor</code>的语义的。<code>SynthesizedAnnotation</code>是一个标记接口，它的作用是保证作为实参的<code>annotation</code>不会被多次代理，相同的设计技巧在<code>org.springframework.core.SeriablizableTypeWrapper</code>中也有体现。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 检测指定类型的注解是否是可合成的，也就是说是否可以使用动态代理</span></span><br><span class="line"><span class="comment"> * 进行包装用以获得标准java语义外的功能，比如说AliasFor</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * 一个注解是可合成的指的是：</span></span><br><span class="line"><span class="comment"> *  1、此注解内使用了AliasFor注解</span></span><br><span class="line"><span class="comment"> *  2、此注解使用到的注解（比如某个方法的返回类型）使用了AliasFor注解</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@param</span> annotationType 待检测的注解类型</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="meta">@SuppressWarnings(&quot;unchecked&quot;)</span></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">boolean</span> <span class="title">isSynthesizable</span><span class="params">(Class&lt;? extends Annotation&gt; annotationType)</span> </span>&#123;</span><br><span class="line">    <span class="comment">// 基本注解不能合成</span></span><br><span class="line">    <span class="keyword">if</span> (hasPlainJavaAnnotationsOnly(annotationType)) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 读缓存</span></span><br><span class="line">    Boolean synthesizable = synthesizableCache.get(annotationType);</span><br><span class="line">    <span class="keyword">if</span> (synthesizable != <span class="keyword">null</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> synthesizable;</span><br><span class="line">    &#125;</span><br><span class="line">    synthesizable = Boolean.FALSE;</span><br><span class="line">    <span class="comment">// 遍历注解中定义的方法</span></span><br><span class="line">    <span class="keyword">for</span> (Method attribute : getAttributeMethods(annotationType)) &#123;</span><br><span class="line">        <span class="comment">// 有使用AliasFor注解定义别名</span></span><br><span class="line">        <span class="keyword">if</span> (!getAttributeAliasNames(attribute).isEmpty()) &#123;</span><br><span class="line">            synthesizable = Boolean.TRUE;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 没有直接使用AliasFor注解</span></span><br><span class="line">        <span class="comment">// 此时要看看是否有间接使用，比如注解的某个属性返回某个注解，这个返回的注解使用了AliasFor注解</span></span><br><span class="line">        Class&lt;?&gt; returnType = attribute.getReturnType();</span><br><span class="line">        <span class="keyword">if</span> (Annotation[].class.isAssignableFrom(returnType)) &#123;</span><br><span class="line">            Class&lt;? extends Annotation&gt; nestedAnnotationType = (Class&lt;? extends Annotation&gt;) returnType.getComponentType();</span><br><span class="line">            <span class="keyword">if</span> (isSynthesizable(nestedAnnotationType)) &#123;</span><br><span class="line">                synthesizable = Boolean.TRUE;</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (Annotation.class.isAssignableFrom(returnType)) &#123;</span><br><span class="line">            Class&lt;? extends Annotation&gt; nestedAnnotationType = (Class&lt;? extends Annotation&gt;) returnType;</span><br><span class="line">            <span class="keyword">if</span> (isSynthesizable(nestedAnnotationType)) &#123;</span><br><span class="line">                synthesizable = Boolean.TRUE;</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    synthesizableCache.put(annotationType, synthesizable);</span><br><span class="line">    <span class="keyword">return</span> synthesizable;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们知道，Java中所有的注解都间接继承自<code>java.lang.annotation.Annotation</code>，因此注解中除去自定义的属性外，还有继承自<code>Annotation</code>接口的方法，<code>getAttributeMethods(...)</code>方法的作用就是排除继承自<code>Annotation</code>接口的方法。现在我们可以很容易地发现<code>isSynthesizable(...)</code>方法的核心是<code>getAttributeAliasNames(...)</code>。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">static</span> List&lt;String&gt; <span class="title">getAttributeAliasNames</span><span class="params">(Method attribute)</span> </span>&#123;</span><br><span class="line">  AliasDescriptor descriptor = AliasDescriptor.from(attribute);</span><br><span class="line">  <span class="keyword">return</span> descriptor != <span class="keyword">null</span> ?</span><br><span class="line">    descriptor.getAttributeAliasNames() : Collections.emptyList();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>很不幸,<code>getAttributeAliasNames(...)</code>又代理给了<code>AliasDescriptor</code>。<code>AliasDescriptor</code>是一个静态内部类，它封装了注解属性上<code>AliasFor</code>的相关信息，继续往下追踪。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 通过注解内的属性方法创建AliasDescriptor</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@param</span> attribute 注解内的属性方法</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="meta">@Nullable</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> AliasDescriptor <span class="title">from</span><span class="params">(Method attribute)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// 读缓存</span></span><br><span class="line">  AliasDescriptor descriptor = aliasDescriptorCache.get(attribute);</span><br><span class="line">  <span class="keyword">if</span> (descriptor != <span class="keyword">null</span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> descriptor;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">// 查看一下是否有AliasFor注解</span></span><br><span class="line">  <span class="comment">// 没有的话就没必要创建了</span></span><br><span class="line">  AliasFor aliasFor = attribute.getAnnotation(AliasFor.class);</span><br><span class="line">  <span class="keyword">if</span> (aliasFor == <span class="keyword">null</span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">// 有的话进行创建并校验</span></span><br><span class="line">  descriptor = <span class="keyword">new</span> AliasDescriptor(attribute, aliasFor);</span><br><span class="line">  descriptor.validate(); <span class="comment">// 校验一下</span></span><br><span class="line">  aliasDescriptorCache.put(attribute, descriptor);</span><br><span class="line">  <span class="keyword">return</span> descriptor;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>工厂方法<code>AliasDescriptor#from(...)</code>首先检测注解属性上是否标注有<code>AliasFor</code>注解，没有的话自然没有继续分析的必要了。如果注解属性标注有<code>AliasFor</code>，就会创建一个<code>AliasDescriptor</code>并进行校验。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br></pre></td><td class="code"><pre><span class="line"> <span class="comment">/**</span></span><br><span class="line"><span class="comment">  * 创建AliasDescriptor实例</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line"><span class="meta">@SuppressWarnings(&quot;unchecked&quot;)</span></span><br><span class="line"> <span class="function"><span class="keyword">private</span> <span class="title">AliasDescriptor</span><span class="params">(Method sourceAttribute, AliasFor aliasFor)</span> </span>&#123;</span><br><span class="line">   <span class="comment">// sourceAttribute是注解中的属性方法，因此declaringClass就是注解的类型</span></span><br><span class="line">   Class&lt;?&gt; declaringClass = sourceAttribute.getDeclaringClass();</span><br><span class="line">   <span class="comment">// 很容易通过sourceAttribute获取以下几个信息</span></span><br><span class="line">   <span class="keyword">this</span>.sourceAttribute = sourceAttribute;</span><br><span class="line">   <span class="keyword">this</span>.sourceAttributeName = sourceAttribute.getName();</span><br><span class="line">   <span class="keyword">this</span>.sourceAnnotationType = (Class&lt;? extends Annotation&gt;) declaringClass;</span><br><span class="line">   <span class="comment">// 如果没有指定AliasFor的annotation()属性</span></span><br><span class="line">   <span class="comment">// 那么默认是同一注解内的相互指向，否则使用指定的</span></span><br><span class="line">   <span class="keyword">this</span>.aliasedAnnotationType = (Annotation.class == aliasFor.annotation()) ?</span><br><span class="line">     <span class="keyword">this</span>.sourceAnnotationType :</span><br><span class="line">   aliasFor.annotation();</span><br><span class="line">   <span class="comment">// 获取别名</span></span><br><span class="line">   <span class="keyword">this</span>.aliasedAttributeName = getAliasedAttributeName(aliasFor, sourceAttribute);</span><br><span class="line">   <span class="comment">// 不能自己指向自己</span></span><br><span class="line">   <span class="comment">// 在attributeName相同的情况下，&#123;@link AliasFor#annotation()&#125;必须指向某个元注解</span></span><br><span class="line">   <span class="keyword">if</span> (<span class="keyword">this</span>.aliasedAnnotationType == <span class="keyword">this</span>.sourceAnnotationType &amp;&amp;</span><br><span class="line">       <span class="keyword">this</span>.aliasedAttributeName.equals(<span class="keyword">this</span>.sourceAttributeName)) &#123;</span><br><span class="line">     String msg = String.format(<span class="string">&quot;@AliasFor declaration on attribute &#x27;%s&#x27; in annotation [%s] points to &quot;</span> +</span><br><span class="line">                                <span class="string">&quot;itself. Specify &#x27;annotation&#x27; to point to a same-named attribute on a meta-annotation.&quot;</span>,</span><br><span class="line">                                sourceAttribute.getName(), declaringClass.getName());</span><br><span class="line">     <span class="keyword">throw</span> <span class="keyword">new</span> AnnotationConfigurationException(msg);</span><br><span class="line">   &#125;</span><br><span class="line">   <span class="keyword">try</span> &#123;</span><br><span class="line">     <span class="comment">// 获取别名属性方法，已经知道了名字和类型，可以通过反射直接获取</span></span><br><span class="line">     <span class="comment">// 根据java标准，注解内的方法是没有参数的</span></span><br><span class="line">     <span class="keyword">this</span>.aliasedAttribute = <span class="keyword">this</span>.aliasedAnnotationType.getDeclaredMethod(<span class="keyword">this</span>.aliasedAttributeName);</span><br><span class="line">   &#125; <span class="keyword">catch</span> (NoSuchMethodException ex) &#123;</span><br><span class="line">     String msg = String.format(</span><br><span class="line">       <span class="string">&quot;Attribute &#x27;%s&#x27; in annotation [%s] is declared as an @AliasFor nonexistent attribute &#x27;%s&#x27; in annotation [%s].&quot;</span>,</span><br><span class="line">       <span class="keyword">this</span>.sourceAttributeName, <span class="keyword">this</span>.sourceAnnotationType.getName(), <span class="keyword">this</span>.aliasedAttributeName,</span><br><span class="line">       <span class="keyword">this</span>.aliasedAnnotationType.getName());</span><br><span class="line">     <span class="keyword">throw</span> <span class="keyword">new</span> AnnotationConfigurationException(msg, ex);</span><br><span class="line">   &#125;</span><br><span class="line">   <span class="comment">// source和alias类型相同的话表示是同一注解内部的两个属性互相指向</span></span><br><span class="line">   <span class="comment">// 否则的话说明指定了元注解</span></span><br><span class="line">   <span class="keyword">this</span>.isAliasPair = <span class="keyword">this</span>.sourceAnnotationType == <span class="keyword">this</span>.aliasedAnnotationType;</span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"> <span class="comment">/**</span></span><br><span class="line"><span class="comment">  * 校验合法性</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line"> <span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">validate</span><span class="params">()</span> </span>&#123;</span><br><span class="line">   <span class="comment">// 如果不是注解内部的互相指向，说明是指向了其它的注解属性</span></span><br><span class="line">   <span class="comment">// 这种情况下要求其它注解要meta-present在当前注解上</span></span><br><span class="line">   <span class="keyword">if</span> (!<span class="keyword">this</span>.isAliasPair &amp;&amp; isAnnotationMetaPresent(<span class="keyword">this</span>.sourceAnnotationType, <span class="keyword">this</span>.aliasedAnnotationType)) &#123;</span><br><span class="line">     String msg = String.format(<span class="string">&quot;@AliasFor declaration on attribute &#x27;%s&#x27; in annotation [%s] declares &quot;</span> +</span><br><span class="line">                                <span class="string">&quot;an alias for attribute &#x27;%s&#x27; in meta-annotation [%s] which is not meta-present.&quot;</span>,</span><br><span class="line">                                <span class="keyword">this</span>.sourceAttributeName, <span class="keyword">this</span>.sourceAnnotationType.getName(), <span class="keyword">this</span>.aliasedAttributeName,</span><br><span class="line">                                <span class="keyword">this</span>.aliasedAnnotationType.getName());</span><br><span class="line">     <span class="keyword">throw</span> <span class="keyword">new</span> AnnotationConfigurationException(msg);</span><br><span class="line">   &#125;</span><br><span class="line">   <span class="comment">// 如果是注解内部的互相指向，那么相互指向的两个属性都需要标注AliasFor</span></span><br><span class="line">   <span class="comment">// 比如 AliasFor注解的attribute()和value()</span></span><br><span class="line">   <span class="keyword">if</span> (<span class="keyword">this</span>.isAliasPair) &#123;</span><br><span class="line">     AliasFor mirrorAliasFor = <span class="keyword">this</span>.aliasedAttribute.getAnnotation(AliasFor.class);</span><br><span class="line">     <span class="keyword">if</span> (mirrorAliasFor == <span class="keyword">null</span>) &#123;</span><br><span class="line">       String msg = String.format(<span class="string">&quot;Attribute &#x27;%s&#x27; in annotation [%s] must be declared as an @AliasFor [%s].&quot;</span>,</span><br><span class="line">                                  <span class="keyword">this</span>.aliasedAttributeName, <span class="keyword">this</span>.sourceAnnotationType.getName(), <span class="keyword">this</span>.sourceAttributeName);</span><br><span class="line">       <span class="keyword">throw</span> <span class="keyword">new</span> AnnotationConfigurationException(msg);</span><br><span class="line">     &#125;</span><br><span class="line"></span><br><span class="line">     <span class="comment">// 互相指向时，属性名称要能对应上（A指向B，B也要指向A）</span></span><br><span class="line">     String mirrorAliasedAttributeName = getAliasedAttributeName(mirrorAliasFor, <span class="keyword">this</span>.aliasedAttribute);</span><br><span class="line">     <span class="keyword">if</span> (!<span class="keyword">this</span>.sourceAttributeName.equals(mirrorAliasedAttributeName)) &#123;</span><br><span class="line">       String msg = String.format(<span class="string">&quot;Attribute &#x27;%s&#x27; in annotation [%s] must be declared as an @AliasFor [%s], not [%s].&quot;</span>,</span><br><span class="line">                                  <span class="keyword">this</span>.aliasedAttributeName, <span class="keyword">this</span>.sourceAnnotationType.getName(), <span class="keyword">this</span>.sourceAttributeName,</span><br><span class="line">                                  mirrorAliasedAttributeName);</span><br><span class="line">       <span class="keyword">throw</span> <span class="keyword">new</span> AnnotationConfigurationException(msg);</span><br><span class="line">     &#125;</span><br><span class="line">   &#125;</span><br><span class="line">   <span class="comment">// 返回类型必须相同</span></span><br><span class="line">   <span class="comment">//  1. 完全相同</span></span><br><span class="line">   <span class="comment">//  2. 如果aliasedReturnType是数组的话，returnType必须和数组元素类型相同</span></span><br><span class="line">   <span class="comment">// 关于第2点，这是因为注解在书写时，如果是数组类型，并且只有一个元素的话，是可以省略</span></span><br><span class="line">   <span class="comment">// 花括号的</span></span><br><span class="line">   Class&lt;?&gt; returnType = <span class="keyword">this</span>.sourceAttribute.getReturnType();</span><br><span class="line">   Class&lt;?&gt; aliasedReturnType = <span class="keyword">this</span>.aliasedAttribute.getReturnType();</span><br><span class="line">   <span class="keyword">if</span> (returnType != aliasedReturnType &amp;&amp;</span><br><span class="line">       (!aliasedReturnType.isArray() ||</span><br><span class="line">        returnType != aliasedReturnType.getComponentType())) &#123;</span><br><span class="line">     String msg = String.format(<span class="string">&quot;Misconfigured aliases: attribute &#x27;%s&#x27; in annotation [%s] &quot;</span> +</span><br><span class="line">                                <span class="string">&quot;and attribute &#x27;%s&#x27; in annotation [%s] must declare the same return type.&quot;</span>,</span><br><span class="line">                                <span class="keyword">this</span>.sourceAttributeName, <span class="keyword">this</span>.sourceAnnotationType.getName(), <span class="keyword">this</span>.aliasedAttributeName,</span><br><span class="line">                                <span class="keyword">this</span>.aliasedAnnotationType.getName());</span><br><span class="line">     <span class="keyword">throw</span> <span class="keyword">new</span> AnnotationConfigurationException(msg);</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   <span class="comment">// 如果是相互指向，继续校验默认值</span></span><br><span class="line">   <span class="comment">// 如果不是相互指向，需要在获取了其它AliasDescriptor后校验</span></span><br><span class="line">   <span class="keyword">if</span> (<span class="keyword">this</span>.isAliasPair) &#123;</span><br><span class="line">     validateDefaultValueConfiguration(<span class="keyword">this</span>.aliasedAttribute);</span><br><span class="line">   &#125;</span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"> <span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">validateDefaultValueConfiguration</span><span class="params">(Method aliasedAttribute)</span> </span>&#123;</span><br><span class="line">   Object defaultValue = <span class="keyword">this</span>.sourceAttribute.getDefaultValue();</span><br><span class="line">   Object aliasedDefaultValue = aliasedAttribute.getDefaultValue();</span><br><span class="line">   <span class="comment">// 必须定义默认值</span></span><br><span class="line">   <span class="keyword">if</span> (defaultValue == <span class="keyword">null</span> || aliasedDefaultValue == <span class="keyword">null</span>) &#123;</span><br><span class="line">     String msg = String.format(<span class="string">&quot;Misconfigured aliases: attribute &#x27;%s&#x27; in annotation [%s] &quot;</span> +</span><br><span class="line">                                <span class="string">&quot;and attribute &#x27;%s&#x27; in annotation [%s] must declare default values.&quot;</span>,</span><br><span class="line">                                <span class="keyword">this</span>.sourceAttributeName, <span class="keyword">this</span>.sourceAnnotationType.getName(), aliasedAttribute.getName(),</span><br><span class="line">                                aliasedAttribute.getDeclaringClass().getName());</span><br><span class="line">     <span class="keyword">throw</span> <span class="keyword">new</span> AnnotationConfigurationException(msg);</span><br><span class="line">   &#125;</span><br><span class="line">   <span class="comment">// 默认值必须相等</span></span><br><span class="line">   <span class="keyword">if</span> (!ObjectUtils.nullSafeEquals(defaultValue, aliasedDefaultValue)) &#123;</span><br><span class="line">     String msg = String.format(<span class="string">&quot;Misconfigured aliases: attribute &#x27;%s&#x27; in annotation [%s] &quot;</span> +</span><br><span class="line">                                <span class="string">&quot;and attribute &#x27;%s&#x27; in annotation [%s] must declare the same default value.&quot;</span>,</span><br><span class="line">                                <span class="keyword">this</span>.sourceAttributeName, <span class="keyword">this</span>.sourceAnnotationType.getName(), aliasedAttribute.getName(),</span><br><span class="line">                                aliasedAttribute.getDeclaringClass().getName());</span><br><span class="line">     <span class="keyword">throw</span> <span class="keyword">new</span> AnnotationConfigurationException(msg);</span><br><span class="line">   &#125;</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+
+<p>创建<code>AliasDescriptor</code>对象的逻辑是比较简单的，校验的逻辑略微复杂一点，对于<a href="#explicit_aliases">显式别名</a>的第一种情况，它要求：</p>
+<ol>
+<li><code>AliasFor</code>的<code>value</code>或<code>attribute</code>属性要互相指向对方</li>
+<li>互为别名的两个属性要有相同的返回类型</li>
+<li>互为别名的两个属性要有默认值，并且默认值也要相同</li>
+</ol>
+<p>对于<a href="#explicit_aliases">显式别名</a>的第二种情况：</p>
+<ol>
+<li><code>AliasFor</code>的<code>attribute</code>属性要指向<code>meta annotation</code>内的某个属性</li>
+<li>作为别名的属性要和它指向的<code>meta annotation</code>内的那个属性具有相同的返回类型</li>
+<li><code>AliasFor</code>的<code>annotation</code>属性要正确指向某个<code>meta annotation</code>，并且这个<code>meta annotation</code>要<code>meta present</code>在注解上</li>
+</ol>
+<p>对于<a href="#implicit_aliases">隐式别名</a>的情况：</p>
+<ol>
+<li><code>AliasFor</code>的<code>attribute</code>属性要指向<code>meta annotation</code>内的某个属性，可以是直接指向也可以是传递指向</li>
+<li>互为隐式别名的属性要有相同的返回类型</li>
+<li>互为隐式别名的属性要有默认值，并且默认值也要相同</li>
+<li><code>AliasFor</code>的<code>annotation</code>属性要正确指向某个<code>meta annotation</code>，并且这个<code>meta annotation</code>要<code>meta present</code>在注解上</li>
+</ol>
+<p>创建并且校验通过以后，紧接着执行真正的<code>getAttributeAliasNames(...)</code>逻辑。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 获取其它的互为别名的注解属性</span></span><br><span class="line"><span class="comment"> * AliasDescriptor#getAttributeAliasNames()</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> List&lt;String&gt; <span class="title">getAttributeAliasNames</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="comment">// 相互指向，不涉及元注解</span></span><br><span class="line">  <span class="keyword">if</span> (<span class="keyword">this</span>.isAliasPair) &#123;</span><br><span class="line">    <span class="comment">// aliasedAttributeName就是所有的别名了</span></span><br><span class="line">    <span class="comment">// 因为同一注解内属性-&gt;别名是一对一的，一个属性不会有多个别名，否则通过不了校验</span></span><br><span class="line">    <span class="keyword">return</span> Collections.singletonList(<span class="keyword">this</span>.aliasedAttributeName);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">// 不是互相指向，因此是有meta annotation的情况</span></span><br><span class="line">  <span class="comment">// 遍历其它的AliasDescriptor</span></span><br><span class="line">  List&lt;String&gt; aliases = <span class="keyword">new</span> ArrayList&lt;&gt;();</span><br><span class="line">  <span class="keyword">for</span> (AliasDescriptor descriptor : getOtherDescriptors()) &#123;</span><br><span class="line">    <span class="comment">// this和descriptor互为别名</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">this</span>.isAliasFor(descriptor)) &#123;</span><br><span class="line">      <span class="comment">// 绝大多数校验都在创建时执行了，除了默认值检验</span></span><br><span class="line">      <span class="keyword">this</span>.validateAgainst(descriptor);</span><br><span class="line">      <span class="comment">// 添加的是sourceAttributeName，也就是注解内的属性名</span></span><br><span class="line">      aliases.add(descriptor.sourceAttributeName);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> aliases;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>不涉及<code>meta annotation</code>的情况比较简单，有<code>meta annotation</code>的时候就需要遍历其它<code>AliasDescriptor</code>，逐个判断它们之间是否存在别名关系，这个判断逻辑就封装在<code>isAliasFor(...)</code>中。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">boolean</span> <span class="title">isAliasFor</span><span class="params">(AliasDescriptor otherDescriptor)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// 核心算法是沿着alias链循环比较</span></span><br><span class="line">  <span class="keyword">for</span> (AliasDescriptor lhs = <span class="keyword">this</span>; lhs != <span class="keyword">null</span>; lhs = lhs.getAttributeOverrideDescriptor()) &#123;</span><br><span class="line">    <span class="keyword">for</span> (AliasDescriptor rhs = otherDescriptor; rhs != <span class="keyword">null</span>; rhs = rhs.getAttributeOverrideDescriptor()) &#123;</span><br><span class="line">      <span class="keyword">if</span> (lhs.aliasedAttribute.equals(rhs.aliasedAttribute)) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>isAliasFor(...)</code>会沿着<code>alias</code>链逐层向上比较，这样就能处理有多层<code>meta annotation</code>时出现的别名传递，比如：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="meta">@interface</span> <span class="meta">@TransitiveService</span> &#123;</span><br><span class="line">  <span class="meta">@AliasFor(annotation = Component.class, attribute = &quot;value&quot;)</span></span><br><span class="line">  <span class="function">String <span class="title">value</span><span class="params">()</span> <span class="keyword">default</span> &quot;&quot;</span>;</span><br><span class="line">  </span><br><span class="line">  <span class="meta">@AliasFor(annotation = Service.class, attribute = &quot;value&quot;)</span></span><br><span class="line">  <span class="function">String <span class="title">beanName</span><span class="params">()</span> <span class="keyword">default</span> &quot;&quot;</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p> <code>TransitiveService#value()</code>属性是<code>Component#value()</code>属性的别名， <code>TransitiveService#beanName()</code>属性是<code>Service#value()</code>属性的别名，而<code>Service#value()</code>属性也是<code>Component#value()</code>属性的别名，因此<code>TransitiveService</code>的<code>value</code>和<code>beanName</code>属性最终都指向了<code>Component#value()</code>，那么它们也应该互为别名，<code>isAliasFor(...)</code>的算法使得它可以正确处理这种情况。</p>
+<p>&emsp;&emsp;回到<code>AnnotationUtils#isSynthesizable(...)</code>方法，如果<code>getAttributeAliasNames(...)</code>返回了结果，说明注解属性上标注了<code>AliasFor</code>注解，也就有必要进行动态代理的包装了。继续回退，回到<code>AnnotationUtils#synthesizeAnnotation(...)</code>方法，现在万事俱备，着手对传入的注解进行动态代理。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"> <span class="comment">// AnnotationUtils#synthesizeAnnotation(...)片段</span></span><br><span class="line"><span class="comment">// 创建动态代理来保证AliasFor语义</span></span><br><span class="line"> DefaultAnnotationAttributeExtractor extractor = <span class="keyword">new</span> DefaultAnnotationAttributeExtractor(annotation, annotatedElement);</span><br><span class="line"> InvocationHandler handler = <span class="keyword">new</span> SynthesizedAnnotationInvocationHandler(extractor);</span><br><span class="line"> Class&lt;?&gt;[] interfaces = <span class="keyword">new</span> Class&lt;?&gt;[]&#123;annotationType, SynthesizedAnnotation.class&#125;;</span><br><span class="line"> <span class="keyword">return</span> (A) Proxy.newProxyInstance(annotation.getClass().getClassLoader(), interfaces, handler);</span><br></pre></td></tr></table></figure>
+
+<p>被代理的接口中包含<code>SynthesizedAnnotation</code>，前面提过它是用来防止重复代理的，继续看<code>SynthesizedAnnotationInvocationHandler</code>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br></pre></td><td class="code"><pre><span class="line"> <span class="comment">// SynthesizedAnnotationInvocationHandler#invoke(...)</span></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"> <span class="function"><span class="keyword">public</span> Object <span class="title">invoke</span><span class="params">(Object proxy, Method method, Object[] args)</span> <span class="keyword">throws</span> Throwable </span>&#123;</span><br><span class="line">   <span class="comment">// equals/hashCode/toString/annotationType</span></span><br><span class="line">   <span class="comment">// 上述四个方法是定义在Annotation接口中的，而所有的</span></span><br><span class="line">   <span class="comment">// 注解都隐式实现了Annotation接口，因此要特殊处理</span></span><br><span class="line">   <span class="keyword">if</span> (ReflectionUtils.isEqualsMethod(method)) &#123;</span><br><span class="line">     <span class="keyword">return</span> annotationEquals(args[<span class="number">0</span>]);</span><br><span class="line">   &#125;</span><br><span class="line">   <span class="keyword">if</span> (ReflectionUtils.isHashCodeMethod(method)) &#123;</span><br><span class="line">     <span class="keyword">return</span> annotationHashCode();</span><br><span class="line">   &#125;</span><br><span class="line">   <span class="keyword">if</span> (ReflectionUtils.isToStringMethod(method)) &#123;</span><br><span class="line">     <span class="keyword">return</span> annotationToString();</span><br><span class="line">   &#125;</span><br><span class="line">   <span class="keyword">if</span> (AnnotationUtils.isAnnotationTypeMethod(method)) &#123;</span><br><span class="line">     <span class="keyword">return</span> annotationType();</span><br><span class="line">   &#125;</span><br><span class="line">   <span class="comment">// 除掉Annotation接口中的方法后，剩下的就都是属性方法了</span></span><br><span class="line">   <span class="keyword">if</span> (!AnnotationUtils.isAttributeMethod(method)) &#123;</span><br><span class="line">     <span class="keyword">throw</span> <span class="keyword">new</span> AnnotationConfigurationException(String.format(</span><br><span class="line">       <span class="string">&quot;Method [%s] is unsupported for synthesized annotation type [%s]&quot;</span>, method, annotationType()));</span><br><span class="line">   &#125;</span><br><span class="line">   <span class="keyword">return</span> getAttributeValue(method);</span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">// SynthesizedAnnotationInvocationHandler#getAttributeValue(...)</span></span><br><span class="line"> <span class="function"><span class="keyword">private</span> Object <span class="title">getAttributeValue</span><span class="params">(Method attributeMethod)</span> </span>&#123;</span><br><span class="line">   <span class="comment">// 代理给attributeExtractor做真正的提取工作</span></span><br><span class="line">   String attributeName = attributeMethod.getName();</span><br><span class="line">   Object value = <span class="keyword">this</span>.valueCache.get(attributeName);</span><br><span class="line">   <span class="keyword">if</span> (value == <span class="keyword">null</span>) &#123;</span><br><span class="line">     value = <span class="keyword">this</span>.attributeExtractor.getAttributeValue(attributeMethod);</span><br><span class="line">     <span class="keyword">if</span> (value == <span class="keyword">null</span>) &#123;</span><br><span class="line">       String msg = String.format(<span class="string">&quot;%s returned null for attribute name [%s] from attribute source [%s]&quot;</span>,</span><br><span class="line">                                  <span class="keyword">this</span>.attributeExtractor.getClass().getName(), attributeName, <span class="keyword">this</span>.attributeExtractor.getSource());</span><br><span class="line">       <span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(msg);</span><br><span class="line">     &#125;</span><br><span class="line"></span><br><span class="line">     <span class="comment">// 如果返回的是另一个注解，尝试包装</span></span><br><span class="line">     <span class="comment">// 很可能返回的这个注解也有使用AliasFor标注</span></span><br><span class="line">     <span class="keyword">if</span> (value <span class="keyword">instanceof</span> Annotation) &#123;</span><br><span class="line">       value = AnnotationUtils.synthesizeAnnotation((Annotation) value, <span class="keyword">this</span>.attributeExtractor.getAnnotatedElement());</span><br><span class="line">     &#125; <span class="keyword">else</span> <span class="keyword">if</span> (value <span class="keyword">instanceof</span> Annotation[]) &#123;</span><br><span class="line">       value = AnnotationUtils.synthesizeAnnotationArray((Annotation[]) value, <span class="keyword">this</span>.attributeExtractor.getAnnotatedElement());</span><br><span class="line">     &#125;</span><br><span class="line"></span><br><span class="line">     <span class="keyword">this</span>.valueCache.put(attributeName, value);</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   <span class="comment">// Clone arrays so that users cannot alter the contents of values in our cache.</span></span><br><span class="line">   <span class="keyword">if</span> (value.getClass().isArray()) &#123;</span><br><span class="line">     value = cloneArray(value);</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   <span class="keyword">return</span> value;</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+
+<p>很遗憾<code>SynthesizedAnnotationInvocationHandler</code>只是一个骨架，实际的逻辑封装在<code>AnnotationAttributeExtractor</code>中。<code>AnnotationAttributeExtractor</code>是一个策略接口，它封装了从<code>底层源</code>中获取属性值的功能，<code>底层源</code>可能是一个注解或者Map，顺藤摸瓜，来到<code>DefaultAnnotationAttributeExtractor</code>，它的<code>底层源</code>就是传入的注解：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">final</span> Object <span class="title">getAttributeValue</span><span class="params">(Method attribute)</span> </span>&#123;</span><br><span class="line">  String attributeName = attribute.getName();</span><br><span class="line">  Object attributeValue = getRawAttributeValue(attribute);</span><br><span class="line">  List&lt;String&gt; aliasNames = <span class="keyword">this</span>.attributeAliasMap.get(attributeName);</span><br><span class="line">  <span class="keyword">if</span> (aliasNames != <span class="keyword">null</span>) &#123;</span><br><span class="line">    Object defaultValue = AnnotationUtils.getDefaultValue(<span class="keyword">this</span>.annotationType, attributeName);</span><br><span class="line">    <span class="keyword">for</span> (String aliasName : aliasNames) &#123;</span><br><span class="line">      Object aliasValue = getRawAttributeValue(aliasName);</span><br><span class="line">      <span class="comment">// 存在多个别名的时候，只能设置其中一个的值</span></span><br><span class="line">      <span class="comment">// 否则的话，就不知道选取哪个作为最终的值了</span></span><br><span class="line">      <span class="keyword">if</span> (!ObjectUtils.nullSafeEquals(attributeValue, aliasValue) &amp;&amp;</span><br><span class="line">          !ObjectUtils.nullSafeEquals(attributeValue, defaultValue) &amp;&amp;</span><br><span class="line">          !ObjectUtils.nullSafeEquals(aliasValue, defaultValue)) &#123;</span><br><span class="line">        String elementName = (<span class="keyword">this</span>.annotatedElement != <span class="keyword">null</span> ? <span class="keyword">this</span>.annotatedElement.toString() : <span class="string">&quot;unknown element&quot;</span>);</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> AnnotationConfigurationException(String.format(</span><br><span class="line">          <span class="string">&quot;In annotation [%s] declared on %s and synthesized from [%s], attribute &#x27;%s&#x27; and its &quot;</span> +</span><br><span class="line">          <span class="string">&quot;alias &#x27;%s&#x27; are present with values of [%s] and [%s], but only one is permitted.&quot;</span>,</span><br><span class="line">          <span class="keyword">this</span>.annotationType.getName(), elementName, <span class="keyword">this</span>.source, attributeName, aliasName,</span><br><span class="line">          ObjectUtils.nullSafeToString(attributeValue), ObjectUtils.nullSafeToString(aliasValue)));</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="comment">// 如果attributeValue没有设置的话</span></span><br><span class="line">      <span class="comment">// 让它同步别名的值，这样对外就保持了一致性</span></span><br><span class="line">      <span class="keyword">if</span> (ObjectUtils.nullSafeEquals(attributeValue, defaultValue)) &#123;</span><br><span class="line">        attributeValue = aliasValue;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> attributeValue;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="meta">@Nullable</span></span><br><span class="line"><span class="function"><span class="keyword">protected</span> Object <span class="title">getRawAttributeValue</span><span class="params">(Method attributeMethod)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// 通过方法调用获取值</span></span><br><span class="line">  ReflectionUtils.makeAccessible(attributeMethod);</span><br><span class="line">  <span class="keyword">return</span> ReflectionUtils.invokeMethod(attributeMethod, getSource());</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="meta">@Nullable</span></span><br><span class="line"><span class="function"><span class="keyword">protected</span> Object <span class="title">getRawAttributeValue</span><span class="params">(String attributeName)</span> </span>&#123;</span><br><span class="line">  Method attributeMethod = ReflectionUtils.findMethod(getAnnotationType(), attributeName);</span><br><span class="line">  <span class="keyword">return</span> (attributeMethod != <span class="keyword">null</span> ? getRawAttributeValue(attributeMethod) : <span class="keyword">null</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>至此，属性值的提取水落石出，对注解的动态代理也告一段落，<code>AliasFor</code>的语义就在这不经意间被安排上了。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/09/06/move-on/" rel="prev" title="某科学的超级嘴遁">
+      <i class="fa fa-chevron-left"></i> 某科学的超级嘴遁
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BB%80%E4%B9%88%E6%98%AFAliasFor"><span class="nav-number">1.</span> <span class="nav-text">什么是AliasFor</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E5%BC%95%E5%85%A5AliasFor"><span class="nav-number">2.</span> <span class="nav-text">为什么要引入AliasFor</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#AliasFor%E7%9A%84%E8%AF%AD%E4%B9%89%E6%98%AF%E5%A6%82%E4%BD%95%E5%AE%9E%E7%8E%B0%E7%9A%84"><span class="nav-number">3.</span> <span class="nav-text">AliasFor的语义是如何实现的</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Archer"
+      src="/images/yml.png">
+  <p class="site-author-name" itemprop="name">Archer</p>
+  <div class="site-description" itemprop="description">动漫、代码和篮球，就是人生。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">4</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+  <div class="beian"><a href="http://www.beian.miit.gov.cn/" rel="noopener" target="_blank">浙ICP备 </a>
+      <img src="/images/beian.png" style="display: inline-block;"><a href="http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=2020032452" rel="noopener" target="_blank">2020032452 </a>
+  </div>
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Archer</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('https://cdn.jsdelivr.net/npm/valine@1.4.14/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'wDEP5aDWGvNhbXet3IgTy7b2-gzGzoHsz',
+      appKey     : 'DO2NJ8s5bWUF2yFQRlCvtEnT',
+      placeholder: "Just go go",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : false,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

@@ -28,9 +28,8 @@
 <meta property="og:description" content="Nginx基本功能 反向代理 负载均衡 动静分离  &amp;emsp;&amp;emsp;反向代理，是指将请求发送给反向代理服务器，由反向代理服务器去选择目标服务器，获取数据后返回反向代理服务器，再返回客户端。如此，反向代理服务器和目标服务器在逻辑上就表现为同一个服务器，但是暴露的是反向代理服务器的IP而不是目标服务器的IP，换言之，隐藏了目标服务器的IP。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2020-10-20T01:28:04.000Z">
-<meta property="article:modified_time" content="2021-02-20T01:40:13.245Z">
+<meta property="article:modified_time" content="2021-02-20T01:51:00.866Z">
 <meta property="article:author" content="Archer">
-<meta property="article:tag" content="Nginx">
 <meta name="twitter:card" content="summary">
 
 <link rel="canonical" href="http://example.com/2020/10/20/nginx_tutorial/">
@@ -185,6 +184,15 @@
 
               <time title="创建时间：2020-10-20 09:28:04" itemprop="dateCreated datePublished" datetime="2020-10-20T09:28:04+08:00">2020-10-20</time>
             </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Nginx/" itemprop="url" rel="index"><span itemprop="name">Nginx</span></a>
+                </span>
+            </span>
 
           
   
@@ -252,51 +260,47 @@
 <h4 id="location指令详解"><a href="#location指令详解" class="headerlink" title="location指令详解"></a>location指令详解</h4><p><strong>指令作用</strong></p>
 <p>&emsp;&emsp;匹配指定的请求uri（请求uri不包含查询参数，如<code>http://localhost:8080/test?id=10</code>，请求uri是/test）</p>
 <p><strong>语法形式</strong></p>
-<p>&emsp;&emsp;location  [ = | ~ | <del>* | ^</del> | @]  /uri/   { </p>
-<p>​            configuration </p>
-<p>​       }</p>
+<figure class="highlight nginx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="attribute">location</span>  [ = | <span class="regexp">~ |</span> <span class="regexp">~* |</span><span class="regexp"> ^~</span> | @]  /uri/   &#123; </span><br><span class="line">    <span class="attribute">configuration</span> </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p><strong>匹配模式及顺序</strong></p>
-<p>&emsp;&emsp;匹配字符串分为两种：普通字符串（literal string）和正则表达式（regular expression），其中 ~ 和 ~* 用于正则表达式， 其他前缀和无任何前缀都用于普通字符串。</p>
-<p>&emsp;&emsp;匹配顺序是：</p>
+<p>匹配模式：</p>
+<ol>
+<li>普通字符串（literal string）匹配</li>
+<li>正则表达式（regular expression）匹配通字符串。</li>
+</ol>
+<p>其中 ~ 和 ~* 用于正则表达式， 其他前缀和无任何前缀都用于普</p>
+<p>匹配顺序：</p>
 <ol>
 <li>先匹配普通字符串，将最精确的匹配暂时存储；</li>
 <li>然后按照配置文件中的声明顺序进行正则表达式匹配，只要匹配到一条正则表达式，则停止匹配，取正则表达式为匹配结果；</li>
 <li>如果所有正则表达式都匹配不上，则取1中存储的结果；</li>
 <li>如果普通字符串和正则表达式都匹配不上，则报404 NOT FOUND。</li>
 </ol>
-<p>location  =  /uri     =开头表示精确前缀匹配，只有完全匹配才能生效。</p>
-<p>location  ^~  /uri    ^~开头表示普通字符串匹配上以后不再进行正则匹配。</p>
-<p>location  ~  pattern   ~开头表示区分大小写的正则匹配。</p>
-<p>location  ~*  pattern  ~*开头表示不区分大小写的正则匹配。</p>
-<p>location  /uri         不带任何修饰符，表示前缀匹配。</p>
-<p>location  /            通用匹配，任何未匹配到其他location的请求都会匹配到。</p>
+<figure class="highlight plain"><figcaption><span>wiki</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">location  &#x3D;  &#x2F;uri     &#x3D;开头表示精确前缀匹配，只有完全匹配才能生效。</span><br><span class="line"></span><br><span class="line">location  ^~  &#x2F;uri    ^~开头表示普通字符串匹配上以后不再进行正则匹配。</span><br><span class="line"></span><br><span class="line">location  ~  pattern   ~开头表示区分大小写的正则匹配。</span><br><span class="line"></span><br><span class="line">location  ~*  pattern  ~*开头表示不区分大小写的正则匹配。</span><br><span class="line"></span><br><span class="line">location  &#x2F;uri         不带任何修饰符，表示前缀匹配。</span><br><span class="line"></span><br><span class="line">location  &#x2F;            通用匹配，任何未匹配到其他location的请求都会匹配到。</span><br></pre></td></tr></table></figure>
+
 <p>注意：正则匹配会根据匹配顺序，找到第一个匹配的正则表达式后将停止搜索。普通字符串匹配则无视顺序，只会选择最精确的匹配。</p>
 <p><strong>常用配置指令alias、root、proxy_pass</strong></p>
 <ul>
 <li>alias——别名配置，用于访问文件系统，在匹配到location配置的URL路径后，指向alias配置的路径，如：</li>
 </ul>
-<p>location  /test/ {</p>
-<p>​    alias  /usr/local/;</p>
-<p>}</p>
+<figure class="highlight nginx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="attribute">location</span>  /test/ &#123;</span><br><span class="line">  <span class="attribute">alias</span>  /usr/local/;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>请求/test/1.jpg（省略了协议和域名），将会返回文件/usr/local/1.jpg。</p>
 <p>如果alias配置在正则匹配的location内，则正则表达式中必须包含捕获语句（也就是括号**()**），而且alias配置中也要引用这些捕获值。如：</p>
-<p>location  ~*  /img/(.+.(gif|png|jpeg)) {</p>
-<p>  alias   /usr/local/images/$1;</p>
-<p>}</p>
+<figure class="highlight nginx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="attribute">location</span>  <span class="regexp">~*  /img/(.+\.(gif|png|jpeg))</span> &#123;</span><br><span class="line">  <span class="attribute">alias</span>   /usr/local/images/<span class="variable">$1</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>请求中只要能匹配到正则，比如**/img/flower.png** 或者 <strong>/resource/img/flower.png</strong>，都会转换为请求**/usr/local/images/flower.png**。</p>
 <ul>
 <li>root——根路径配置，用于访问文件系统，在匹配到location配置的URL路径后，指向root配置的路径，并把请求路径附加到其后，如：</li>
 </ul>
-<p>location  /test/ {</p>
-<p>​    root  /usr/local/;</p>
-<p>}</p>
+<figure class="highlight nginx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="attribute">location</span>  /test/ &#123;</span><br><span class="line">    <span class="attribute">root</span>  /usr/local/;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>请求/test/1.jpg，将会返回文件/usr/local/test/1.jpg。</p>
 <ul>
 <li>proxy_pass——反向代理配置，用于代理请求，适用于前后端分离和服务器负载均衡等场景，在匹配到location配置的URL路径后，转发请求到proxy_pass配置的URL，是否会附加location配置路径与proxy_pass配置的路径是否以”/“结尾有关，有”/“则不附加，如：</li>
 </ul>
-<p>location  /test/ {</p>
-<p>​    proxy_pass  <a target="_blank" rel="noopener" href="http://127.0.0.1:8080/">http://127.0.0.1:8080/</a>;</p>
-<p>}</p>
+<figure class="highlight nginx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="attribute">location</span>  /test/ &#123;</span><br><span class="line">    <span class="attribute">proxy_pass</span>  http://127.0.0.1:8080/;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>请求/test/1.jpg，将会被nginx转发请求到<a target="_blank" rel="noopener" href="http://127.0.0.1:8080/1.jpg%EF%BC%88%E6%9C%AA%E9%99%84%E5%8A%A0/test/%E8%B7%AF%E5%BE%84%EF%BC%89%E3%80%82">http://127.0.0.1:8080/1.jpg（未附加/test/路径）。</a></p>
 <h4 id="配置实例"><a href="#配置实例" class="headerlink" title="配置实例"></a>配置实例</h4><h5 id="反向代理"><a href="#反向代理" class="headerlink" title="反向代理"></a>反向代理</h5><p>&emsp;&emsp;假设当前服务器上的Tomcat启动在8080端口。</p>
 <figure class="highlight nginx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br></pre></td><td class="code"><pre><span class="line"><span class="attribute">user</span>  root;</span><br><span class="line"><span class="attribute">worker_processes</span>  <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line"><span class="attribute">error_log</span>  /var/log/nginx/error.log <span class="literal">warn</span>;</span><br><span class="line"><span class="attribute">pid</span>        /var/run/nginx.pid;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="section">events</span> &#123;</span><br><span class="line">    <span class="attribute">worker_connections</span>  <span class="number">1024</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="section">http</span> &#123;</span><br><span class="line">    <span class="attribute">include</span>       /etc/nginx/mime.types;</span><br><span class="line">    <span class="attribute">default_type</span>  application/octet-stream;</span><br><span class="line"></span><br><span class="line">    <span class="attribute">log_format</span>  main  <span class="string">&#x27;<span class="variable">$remote_addr</span> - <span class="variable">$remote_user</span> [<span class="variable">$time_local</span>] &quot;<span class="variable">$request</span>&quot; &#x27;</span></span><br><span class="line">                      <span class="string">&#x27;<span class="variable">$status</span> <span class="variable">$body_bytes_sent</span> &quot;<span class="variable">$http_referer</span>&quot; &#x27;</span></span><br><span class="line">                      <span class="string">&#x27;&quot;<span class="variable">$http_user_agent</span>&quot; &quot;<span class="variable">$http_x_forwarded_for</span>&quot;&#x27;</span>;</span><br><span class="line"></span><br><span class="line">    <span class="attribute">access_log</span>  /var/log/nginx/access.log  main;</span><br><span class="line"></span><br><span class="line">    <span class="attribute">sendfile</span>        <span class="literal">on</span>;</span><br><span class="line">    <span class="comment">#tcp_nopush     on;</span></span><br><span class="line"></span><br><span class="line">    <span class="attribute">keepalive_timeout</span>  <span class="number">65</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">#gzip  on;</span></span><br><span class="line"></span><br><span class="line">      <span class="section">server</span> &#123;</span><br><span class="line">        <span class="comment"># 监听本机80端口</span></span><br><span class="line">        <span class="attribute">listen</span> <span class="number">80</span>;</span><br><span class="line">        <span class="attribute">server_name</span> localhost;</span><br><span class="line">        </span><br><span class="line">        <span class="attribute">charset</span> utf-<span class="number">8</span>;</span><br><span class="line"></span><br><span class="line">        <span class="comment"># 根路径匹配</span></span><br><span class="line">      <span class="attribute">location</span> / &#123;</span><br><span class="line">                <span class="attribute">root</span> html;</span><br><span class="line">          <span class="comment"># 转发到8080端口，也就是转发给Tomcat</span></span><br><span class="line">          <span class="attribute">proxy_pass</span> http://127.0.0.1:8080;</span><br><span class="line">          <span class="attribute">index</span> index.html index.htm;</span><br><span class="line">      &#125;</span><br><span class="line">    </span><br><span class="line">        <span class="attribute">error_page</span> <span class="number">404</span> /<span class="number">404</span>.html;</span><br><span class="line">        </span><br><span class="line">        <span class="attribute">error_page</span> <span class="number">500</span> <span class="number">502</span> <span class="number">503</span> <span class="number">504</span> /50x.html </span><br><span class="line">      &#125;</span><br><span class="line">  </span><br><span class="line">    server &#123;</span><br><span class="line">        <span class="comment"># 监听9001端口</span></span><br><span class="line">            <span class="attribute">listen</span> <span class="number">9001</span>;</span><br><span class="line">      <span class="attribute">server_name</span> localhost;</span><br><span class="line">    </span><br><span class="line">      <span class="comment"># ~ /mine/ 表示正则匹配</span></span><br><span class="line">      <span class="comment"># 如果路径中包含/mine/的话</span></span><br><span class="line">      <span class="attribute">location</span> <span class="regexp">~ /mime/</span> &#123;</span><br><span class="line">                <span class="attribute">root</span> html;</span><br><span class="line">          <span class="comment"># 就转发到8081端口</span></span><br><span class="line">          <span class="attribute">proxy_pass</span> http://127.0.0.1:8081;</span><br><span class="line">          <span class="attribute">index</span> index.html index.htm;</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      <span class="comment"># 如果路径中包含/you/的话</span></span><br><span class="line">      <span class="attribute">location</span> <span class="regexp">~ /you/</span> &#123;</span><br><span class="line">                <span class="attribute">root</span> html;</span><br><span class="line">          <span class="comment"># 就转发到8082端口</span></span><br><span class="line">          <span class="attribute">proxy_pass</span> http://127.0.0.1:8082;</span><br><span class="line">          <span class="attribute">index</span> index.html index.htm;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
@@ -317,9 +321,6 @@
     
 
       <footer class="post-footer">
-          <div class="post-tags">
-              <a href="/tags/Nginx/" rel="tag"># Nginx</a>
-          </div>
 
         
 
@@ -413,12 +414,8 @@
       <div class="site-state-item site-state-categories">
             <a href="/categories/">
           
-        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-count">4</span>
         <span class="site-state-item-name">分类</span></a>
-      </div>
-      <div class="site-state-item site-state-tags">
-        <span class="site-state-item-count">1</span>
-        <span class="site-state-item-name">标签</span>
       </div>
   </nav>
 </div>

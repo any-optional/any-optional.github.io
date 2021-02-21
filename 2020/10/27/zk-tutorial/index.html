@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.0.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Mist","version":"7.8.0","exturl":false,"sidebar":{"position":"right","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":false,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="ZooKeeper的应用场景&amp;emsp;&amp;emsp;ZooKeeper是一个经典的分布式数据一致性解决方案，致力于为分布式应用提供一个高性能、高可用，且具有严格顺序访问控制能力的分布式协调存储服务。它可以  维护配置信息（作为分布式配置中心） 分布式锁服务 集群管理 生成分布式唯一ID  关于严格顺序访问：对于来自客户端的每个更新请求，ZooKeeper都会分配一个全局唯一的递增编号，这个编号反应">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ZooKeeper基础使用">
+<meta property="og:url" content="http://example.com/2020/10/27/zk-tutorial/index.html">
+<meta property="og:site_name" content="In the garden of sinners">
+<meta property="og:description" content="ZooKeeper的应用场景&amp;emsp;&amp;emsp;ZooKeeper是一个经典的分布式数据一致性解决方案，致力于为分布式应用提供一个高性能、高可用，且具有严格顺序访问控制能力的分布式协调存储服务。它可以  维护配置信息（作为分布式配置中心） 分布式锁服务 集群管理 生成分布式唯一ID  关于严格顺序访问：对于来自客户端的每个更新请求，ZooKeeper都会分配一个全局唯一的递增编号，这个编号反应">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2020-10-27T12:45:09.000Z">
+<meta property="article:modified_time" content="2021-02-21T09:08:42.122Z">
+<meta property="article:author" content="Archer">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2020/10/27/zk-tutorial/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>ZooKeeper基础使用 | In the garden of sinners</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">In the garden of sinners</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">空之境界</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+
+  <a href="https://github.com/any-optional" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2020/10/27/zk-tutorial/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yml.png">
+      <meta itemprop="name" content="Archer">
+      <meta itemprop="description" content="动漫、代码和篮球，就是人生。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="In the garden of sinners">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          ZooKeeper基础使用
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-10-27 20:45:09" itemprop="dateCreated datePublished" datetime="2020-10-27T20:45:09+08:00">2020-10-27</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/ZooKeeper/" itemprop="url" rel="index"><span itemprop="name">ZooKeeper</span></a>
+                </span>
+            </span>
+
+          
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="fa fa-comment-o"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2020/10/27/zk-tutorial/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2020/10/27/zk-tutorial/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h4 id="ZooKeeper的应用场景"><a href="#ZooKeeper的应用场景" class="headerlink" title="ZooKeeper的应用场景"></a>ZooKeeper的应用场景</h4><p>&emsp;&emsp;ZooKeeper是一个经典的分布式数据一致性解决方案，致力于为分布式应用提供一个高性能、高可用，且具有严格顺序访问控制能力的分布式协调存储服务。它可以</p>
+<ol>
+<li>维护配置信息（作为分布式配置中心）</li>
+<li>分布式锁服务</li>
+<li>集群管理</li>
+<li>生成分布式唯一ID</li>
+</ol>
+<p>关于严格顺序访问：对于来自客户端的每个更新请求，ZooKeeper都会分配一个全局唯一的递增编号，这个编号反应了所有事务操作的先后顺序。</p>
+<a id="more"></a>
+
+<h4 id="Docker安装ZooKeeper"><a href="#Docker安装ZooKeeper" class="headerlink" title="Docker安装ZooKeeper"></a>Docker安装ZooKeeper</h4><figure class="highlight dockerfile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 下载zookeeper</span></span><br><span class="line">docker pull zookeeper</span><br><span class="line"><span class="comment"># 运行zookeeper</span></span><br><span class="line">docker <span class="keyword">run</span><span class="bash"> -d -e TZ=<span class="string">&quot;Asia/Shanghai&quot;</span> -p 2181:2181 -v /docker/zookeeper/data:/data -v /docker/zookeeper/conf:/conf --name zookeeper --restart always zookeeper</span></span><br><span class="line"><span class="comment"># 进入zookeeper命令行界面</span></span><br><span class="line">docker <span class="keyword">run</span><span class="bash"> -it --rm --link zookeeper:zookeeper zookeeper zkCli.sh -server zookeeper</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="ZooKeeper的数据模型"><a href="#ZooKeeper的数据模型" class="headerlink" title="ZooKeeper的数据模型"></a>ZooKeeper的数据模型</h4><p>&emsp;&emsp;ZooKeeper节点在结构上表现为树状，树中的各节点称为znode，一个znode可以有多个子节点。ZooKeeper使用路径来定位某个节点，比如<code>/com/anyoptional/zookeeper</code>，com、anyoptional和zookeepr分别是根节点、一级节点和二级节点，其中com是anyoptiona的父节点，anyoptional是com的子节点，依此类推。</p>
+<p>&emsp;&emsp;znode兼具文件和目录两种特点，它既像文件一样维护着数据和元信息，又像目录一样可以作为路径标识的一部分。大体上，znode可以分为三部分</p>
+<ol>
+<li>数据域，即data</li>
+<li>子节点，即child nodes</li>
+<li>元数据，即stat，用来描述当前节点的创建和修改记录等</li>
+</ol>
+<p>节点状态stat包括</p>
+<ul>
+<li>cZxid，节点创建时的事务id</li>
+<li>ctime，节点创建时的时间</li>
+<li>mZxid，节点最后一次更新时的事务id</li>
+<li>mtime，节点最后一次更新时的时间</li>
+<li>pZxid，当前节点的子节点最后一次修改时的事务id</li>
+<li>cversion，子节点的更改次数</li>
+<li>dataVersion，节点数据的更改次数</li>
+<li>aclVersion，节点ACL的更改次数</li>
+<li>ephemeralOwner，如果节点是临时节点，表示创建该节点时的session id，如果是持久节点，恒为0</li>
+<li>dataLength，数据内容的长度</li>
+<li>numChildren，子节点数量</li>
+</ul>
+<p>ZooKeeper中的节点分为两种，临时节点和持久节点，节点的类型在创建时确定并且不能修改。</p>
+<ul>
+<li>临时节点，该节点的生命周期依赖于创建它的会话，一旦会话结束，临时节点将被删除，当然也可以手动删除。虽然临时节点都会绑定到一个会话上，但它们对所有的客户端也是可见的。<strong>另外，临时节点不能拥有子节点</strong></li>
+<li>持久节点，该节点的生命周期不依赖于会话，并且只有在客户端显示执行删除操作时，才会被移除</li>
+</ul>
+<h4 id="ZooKeeper常用命令（ZooKeeper-CLI-version-3-6-2）"><a href="#ZooKeeper常用命令（ZooKeeper-CLI-version-3-6-2）" class="headerlink" title="ZooKeeper常用命令（ZooKeeper CLI version: 3.6.2）"></a>ZooKeeper常用命令（ZooKeeper CLI version: 3.6.2）</h4><h5 id="1-create-创建节点"><a href="#1-create-创建节点" class="headerlink" title="1. create 创建节点"></a>1. create 创建节点</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 格式</span></span><br><span class="line">create [-s] [-e] path [data] [acl]</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 参数</span></span><br><span class="line">-s 有序节点 serial</span><br><span class="line">-e 临时节点 ephemeral [ɪ&#x27;fem(ə)rəl] 短暂的，瞬息的</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 示例</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> 创建持久化节点并写入数据</span></span><br><span class="line">[zk: zookeeper(CONNECTED) 6] create /servant &quot;saber&quot;</span><br><span class="line">Created /servant</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 创建持久化有序节点，此时节点名为指定的名称前缀 + 递增序号</span></span><br><span class="line">[zk: zookeeper(CONNECTED) 7] create -s /a &quot;a&quot;</span><br><span class="line">Created /a0000000001</span><br><span class="line">[zk: zookeeper(CONNECTED) 8] create -s /b &quot;b&quot;</span><br><span class="line">Created /b0000000002</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 创建临时节点，临时节点会在会话过期后被删除</span></span><br><span class="line">[zk: zookeeper(CONNECTED) 9] create -e /c &quot;c&quot;</span><br><span class="line">Created /c</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 创建临时有序节点，临时节点会在会话过期后被删除</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> 且节点名为指定的名称前缀 + 递增序号</span></span><br><span class="line">[zk: zookeeper(CONNECTED) 10] create -s -e /d &quot;d&quot;</span><br><span class="line">Created /d0000000004</span><br></pre></td></tr></table></figure>
+
+<h5 id="2-set-更新节点"><a href="#2-set-更新节点" class="headerlink" title="2. set 更新节点"></a>2. set 更新节点</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 格式</span></span><br><span class="line">set [-s] [-v version] path data</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 参数</span></span><br><span class="line">-v 使用CAS设置数据，CAS比对的是dataVersion</span><br><span class="line">-s 显示节点的stat</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 示例</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> 设置数据，当且仅当版本号为3时才会成功</span></span><br><span class="line">[zk: zookeeper(CONNECTED) 7] stat /c</span><br><span class="line">cZxid = 0x8</span><br><span class="line">ctime = Sat Feb 20 09:52:11 UTC 2021</span><br><span class="line">mZxid = 0x10</span><br><span class="line">mtime = Sat Feb 20 12:03:18 UTC 2021</span><br><span class="line">pZxid = 0x8</span><br><span class="line">cversion = 0</span><br><span class="line">dataVersion = 4 # 当前版本为4</span><br><span class="line">aclVersion = 0</span><br><span class="line">ephemeralOwner = 0x104d91987900001</span><br><span class="line">dataLength = 2</span><br><span class="line">numChildren = 0</span><br><span class="line">[zk: zookeeper(CONNECTED) 8] set -v 4 /c &quot;c4&quot; # 设置成功，版本递增</span><br><span class="line">[zk: zookeeper(CONNECTED) 9] stat /c</span><br><span class="line">cZxid = 0x8</span><br><span class="line">ctime = Sat Feb 20 09:52:11 UTC 2021</span><br><span class="line">mZxid = 0x12</span><br><span class="line">mtime = Sat Feb 20 12:23:28 UTC 2021</span><br><span class="line">pZxid = 0x8</span><br><span class="line">cversion = 0</span><br><span class="line">dataVersion = 5</span><br><span class="line">aclVersion = 0</span><br><span class="line">ephemeralOwner = 0x104d91987900001</span><br><span class="line">dataLength = 2</span><br><span class="line">numChildren = 0</span><br><span class="line">[zk: zookeeper(CONNECTED) 10] set -v 4 /c &quot;c4&quot; # 此时版本为5设置失败</span><br><span class="line">version No is not valid : /c</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 显示<span class="built_in">stat</span></span></span><br><span class="line">[zk: zookeeper(CONNECTED) 30] set -s /c &quot;ccc&quot;</span><br><span class="line">cZxid = 0x8</span><br><span class="line">ctime = Sat Feb 20 09:52:11 UTC 2021</span><br><span class="line">mZxid = 0xc</span><br><span class="line">mtime = Sat Feb 20 10:19:41 UTC 2021</span><br><span class="line">pZxid = 0x8</span><br><span class="line">cversion = 0</span><br><span class="line">dataVersion = 2</span><br><span class="line">aclVersion = 0</span><br><span class="line">ephemeralOwner = 0x104d91987900001</span><br><span class="line">dataLength = 3</span><br><span class="line">numChildren = 0</span><br></pre></td></tr></table></figure>
+
+<h5 id="3-delete-删除节点（仅在节点为叶子节点时有效）"><a href="#3-delete-删除节点（仅在节点为叶子节点时有效）" class="headerlink" title="3. delete 删除节点（仅在节点为叶子节点时有效）"></a>3. delete 删除节点（仅在节点为叶子节点时有效）</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 格式</span></span><br><span class="line">delete [-v version] path</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 参数</span></span><br><span class="line">-v CAS删除节点</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 示例</span></span><br><span class="line">[zk: zookeeper(CONNECTED) 13] stat /c</span><br><span class="line">cZxid = 0x8</span><br><span class="line">ctime = Sat Feb 20 09:52:11 UTC 2021</span><br><span class="line">mZxid = 0x12</span><br><span class="line">mtime = Sat Feb 20 12:23:28 UTC 2021</span><br><span class="line">pZxid = 0x8</span><br><span class="line">cversion = 0</span><br><span class="line">dataVersion = 5 # 版本为5</span><br><span class="line">aclVersion = 0</span><br><span class="line">ephemeralOwner = 0x104d91987900001</span><br><span class="line">dataLength = 2</span><br><span class="line">numChildren = 0</span><br><span class="line">[zk: zookeeper(CONNECTED) 14] delete -v 3 /c # 删除版本为3的节点，失败</span><br><span class="line">version No is not valid : /c</span><br><span class="line">[zk: zookeeper(CONNECTED) 15] delete -v 5 /c # 删除成功</span><br><span class="line">[zk: zookeeper(CONNECTED) 16] get /c</span><br><span class="line">org.apache.zookeeper.KeeperException$NoNodeException: KeeperErrorCode = NoNode for /c</span><br></pre></td></tr></table></figure>
+
+<h5 id="4-deleteall-rmr-删除节点（即是有子节点也可以删除）"><a href="#4-deleteall-rmr-删除节点（即是有子节点也可以删除）" class="headerlink" title="4. deleteall / rmr 删除节点（即是有子节点也可以删除）"></a>4. deleteall / rmr 删除节点（即是有子节点也可以删除）</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 格式</span></span><br><span class="line">deleteall/rmr path</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 示例</span></span><br><span class="line">[zk: zookeeper(CONNECTED) 18] create /parent &quot;p&quot;</span><br><span class="line">Created /parent</span><br><span class="line">[zk: zookeeper(CONNECTED) 19] create /parent/child &quot;c&quot;</span><br><span class="line">Created /parent/child</span><br><span class="line">[zk: zookeeper(CONNECTED) 20] delete /parent</span><br><span class="line">Node not empty: /parent</span><br><span class="line">[zk: zookeeper(CONNECTED) 22] deleteall /parent</span><br><span class="line">[zk: zookeeper(CONNECTED) 23] get /parent</span><br><span class="line">org.apache.zookeeper.KeeperException$NoNodeException: KeeperErrorCode = NoNode for /parent</span><br></pre></td></tr></table></figure>
+
+<h5 id="5-get-查看节点"><a href="#5-get-查看节点" class="headerlink" title="5. get 查看节点"></a>5. get 查看节点</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 格式</span></span><br><span class="line">get [-s] [-w] path</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 参数</span></span><br><span class="line">-s 显示stat</span><br><span class="line">-w 监听数据变化（只生效一次）</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 示例</span></span><br><span class="line">[zk: zookeeper(CONNECTED) 26] get -s /c</span><br><span class="line">c</span><br><span class="line">cZxid = 0x1a</span><br><span class="line">ctime = Sat Feb 20 12:40:32 UTC 2021</span><br><span class="line">mZxid = 0x1a</span><br><span class="line">mtime = Sat Feb 20 12:40:32 UTC 2021</span><br><span class="line">pZxid = 0x1a</span><br><span class="line">cversion = 0</span><br><span class="line">dataVersion = 0</span><br><span class="line">aclVersion = 0</span><br><span class="line">ephemeralOwner = 0x0</span><br><span class="line">dataLength = 1</span><br><span class="line">numChildren = 0</span><br><span class="line">[zk: zookeeper(CONNECTED) 27] get -w /c</span><br><span class="line">c</span><br><span class="line">[zk: zookeeper(CONNECTED) 28] </span><br><span class="line">[zk: zookeeper(CONNECTED) 28] </span><br><span class="line">[zk: zookeeper(CONNECTED) 28] set /c b</span><br><span class="line"></span><br><span class="line">WATCHER:: # 监听回调</span><br><span class="line"></span><br><span class="line">WatchedEvent state:SyncConnected type:NodeDataChanged path:/c</span><br></pre></td></tr></table></figure>
+
+<h5 id="6-stat-显示状态（元数据）"><a href="#6-stat-显示状态（元数据）" class="headerlink" title="6. stat 显示状态（元数据）"></a>6. stat 显示状态（元数据）</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 格式</span></span><br><span class="line">stat [-w] path</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 参数</span></span><br><span class="line">-w 监听子节点变化（只生效一次）</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 示例</span></span><br><span class="line">[zk: zookeeper(CONNECTED) 30] stat /c</span><br><span class="line">cZxid = 0x1a # 创建时的事务id</span><br><span class="line">ctime = Sat Feb 20 12:40:32 UTC 2021 # 创建时间</span><br><span class="line">mZxid = 0x1b # 最近一次修改时的事务id</span><br><span class="line">mtime = Sat Feb 20 12:40:44 UTC 2021 # 最近修改时间</span><br><span class="line">pZxid = 0x1a # 子节点最近一次修改时的事务id</span><br><span class="line">cversion = 0 # 子节点版本信息</span><br><span class="line">dataVersion = 1 # 数据版本信息</span><br><span class="line">aclVersion = 0 # 访问控制版本信息</span><br><span class="line">ephemeralOwner = 0x0 # 临时节点为session id，持久节点为0</span><br><span class="line">dataLength = 1 # 数据长度</span><br><span class="line">numChildren = 0 # 子节点个数</span><br></pre></td></tr></table></figure>
+
+<h5 id="7-getAllChildrenNumber-获取指定节点的子节点数量"><a href="#7-getAllChildrenNumber-获取指定节点的子节点数量" class="headerlink" title="7. getAllChildrenNumber 获取指定节点的子节点数量"></a>7. getAllChildrenNumber 获取指定节点的子节点数量</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 格式</span></span><br><span class="line">getAllChildrenNumber path</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 示例</span></span><br><span class="line">[zk: zookeeper(CONNECTED) 61] getAllChildrenNumber /a0000000001</span><br><span class="line">0</span><br></pre></td></tr></table></figure>
+
+<h5 id="8-getEphemerals-获取当前会话下的所有临时节点"><a href="#8-getEphemerals-获取当前会话下的所有临时节点" class="headerlink" title="8. getEphemerals 获取当前会话下的所有临时节点"></a>8. getEphemerals 获取当前会话下的所有临时节点</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 格式</span></span><br><span class="line">getEphemerals</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 示例</span></span><br><span class="line">[zk: zookeeper(CONNECTED) 62] getEphemerals</span><br><span class="line">[]</span><br></pre></td></tr></table></figure>
+
+<h5 id="9-ls-显示子节点列表"><a href="#9-ls-显示子节点列表" class="headerlink" title="9.  ls 显示子节点列表"></a>9.  ls 显示子节点列表</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 格式</span></span><br><span class="line">ls [-s] [-R] [-w] path</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 参数</span></span><br><span class="line">-s 显示stat</span><br><span class="line">-R 递归列出所有节点列表</span><br><span class="line">-w 监听子节点变化（只生效一次）</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 示例</span></span><br><span class="line">[zk: zookeeper(CONNECTED) 34] create /c/d d</span><br><span class="line">Created /c/d</span><br><span class="line">[zk: zookeeper(CONNECTED) 35] create /c/d/e e</span><br><span class="line">Created /c/d/e</span><br><span class="line">[zk: zookeeper(CONNECTED) 36] ls /c</span><br><span class="line">[d]</span><br><span class="line">[zk: zookeeper(CONNECTED) 37] ls -s /c</span><br><span class="line">[d]</span><br><span class="line">cZxid = 0x1a</span><br><span class="line">ctime = Sat Feb 20 12:40:32 UTC 2021</span><br><span class="line">mZxid = 0x1b</span><br><span class="line">mtime = Sat Feb 20 12:40:44 UTC 2021</span><br><span class="line">pZxid = 0x1c</span><br><span class="line">cversion = 1</span><br><span class="line">dataVersion = 1</span><br><span class="line">aclVersion = 0</span><br><span class="line">ephemeralOwner = 0x0</span><br><span class="line">dataLength = 1</span><br><span class="line">numChildren = 1</span><br><span class="line">[zk: zookeeper(CONNECTED) 38] ls -R /c</span><br><span class="line">/c</span><br><span class="line">/c/d</span><br><span class="line">/c/d/e</span><br><span class="line">[zk: zookeeper(CONNECTED) 39] ls -s -R /c # -s和-R不会同时生效</span><br><span class="line">/c</span><br><span class="line">/c/d</span><br><span class="line">/c/d/e</span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="ZooKeeper的权限控制"><a href="#ZooKeeper的权限控制" class="headerlink" title="ZooKeeper的权限控制"></a>ZooKeeper的权限控制</h4><p>&emsp;&emsp;ZooKeeper类似文件系统，客户端可以创建、更新或删除节点。ZooKeeper使用ACL（access control list）来实现权限控制，包含<code>scheme:id:permisson</code>三个部分</p>
+<ul>
+<li>scheme，授权模式<ul>
+<li>world，只有一个用户anyone，代表登录zookeepr的所有人（默认）</li>
+<li>ip，对客户端使用ip地址认证</li>
+<li>auth，使用已添加认证的用户认证</li>
+<li>digest，使用『用户名:密码』的方式认证（密码必须是加密过的）</li>
+</ul>
+</li>
+<li>id，授权对象，权限赋予的实体，比如实际的ip地址或用户</li>
+<li>permission，授予的权限，包括增、删、读、写和管理5种权限，其中delete是指对子节点的删除权限，其它4种是对节点自身的操作权限<ul>
+<li>c，create</li>
+<li>d，delete</li>
+<li>r， read</li>
+<li>w，write</li>
+<li>a，admin</li>
+</ul>
+</li>
+</ul>
+<p>ACL的特性如下</p>
+<ul>
+<li>权限控制基于znode，因此需要针对每个节点进行权限控制</li>
+<li>每个节点都支持设置多个权限和多种权限控制方案</li>
+<li>子节点不继承父节点的权限，客户端可能无权访问某个节点，但却可以访问它的子节点</li>
+</ul>
+<h5 id="1-setAcl-设置节点权限"><a href="#1-setAcl-设置节点权限" class="headerlink" title="1. setAcl 设置节点权限"></a>1. setAcl 设置节点权限</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 格式</span></span><br><span class="line">setAcl [-R] [-v version] path scheme:id:permission(s)</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 参数</span></span><br><span class="line">-R 递归设置子节点</span><br><span class="line">-v 设置指定版本的节点的权限（aclVersion）</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 示例</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> 给ip为192.168.2.245的用户授予对/c节点的c、r、w权限</span></span><br><span class="line">setAcl /c &quot;ip:192.168.2.245:crw&quot; </span><br><span class="line"><span class="meta">#</span><span class="bash"> 逗号分割，可设置多个</span></span><br><span class="line">setAcl /c &quot;ip:192.168.2.246:crw,world:anyone:crwd&quot; </span><br><span class="line"><span class="meta">#</span><span class="bash"> 给saber开放节点t的所有操作</span></span><br><span class="line">setACL /t &quot;auth:saber:123:crdwa&quot;</span><br><span class="line"><span class="meta">#</span><span class="bash"> 所有用户对t0节点仅有c、a权限</span></span><br><span class="line">setAcl /t0 &quot;world:anyone:ca&quot;</span><br></pre></td></tr></table></figure>
+
+<h5 id="2-getAcl-获取节点权限"><a href="#2-getAcl-获取节点权限" class="headerlink" title="2. getAcl 获取节点权限"></a>2. getAcl 获取节点权限</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 格式</span></span><br><span class="line">getAcl path</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 示例</span></span><br><span class="line">getAcl /test</span><br><span class="line">[zk: zookeeper(CONNECTED) 54] getAcl /a0000000001</span><br><span class="line">&#x27;world,&#x27;anyone</span><br><span class="line">: cdrwa</span><br></pre></td></tr></table></figure>
+
+<h5 id="3-addauth-添加一个授权用户"><a href="#3-addauth-添加一个授权用户" class="headerlink" title="3. addauth 添加一个授权用户"></a>3. addauth 添加一个授权用户</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 格式</span></span><br><span class="line">addauth scheme auth</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 示例</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> 添加一个用户，用户名saber，密码123</span></span><br><span class="line">addauth digest &quot;saber:123&quot;</span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="ZooKeeper事件监听机制"><a href="#ZooKeeper事件监听机制" class="headerlink" title="ZooKeeper事件监听机制"></a>ZooKeeper事件监听机制</h4><h5 id="1-Watcher概念"><a href="#1-Watcher概念" class="headerlink" title="1. Watcher概念"></a>1. Watcher概念</h5><p>&emsp;&emsp;ZooKeeper提供了事件的发布/订阅功能，多个订阅者可同时监听某一特定主题，当该主题自身状态发生变化时（比如节点内容改变、节点下的子节点列表改变等），可以实时、主动地通知所有订阅者。</p>
+<p>&emsp;&emsp;ZooKeeper采用Watcher机制来实现事件的发布/订阅功能，该机制在被订阅的主题发生变化时会异步通知客户端，因此客户端不必在注册Watcher后轮询结果。</p>
+<h5 id="2-Watcher架构"><a href="#2-Watcher架构" class="headerlink" title="2. Watcher架构"></a>2. Watcher架构</h5><p>&emsp;&emsp;Watcher实现由三个部分组成</p>
+<ol>
+<li>ZooKeeper服务端</li>
+<li>ZooKeeper客户端</li>
+<li>客户端的ZKWatchManager对象</li>
+</ol>
+<p>客户端首先将Watcher注册到服务端，同时将Watcher保存到ZKWatchManager中。当ZooKeeper服务端检测到订阅的主题发生变化时，它会主动通知客户端，并由客户端的ZKWatchManager来协调相关的Watcher进行事件处理。</p>
+<h5 id="3-Watcher的特性"><a href="#3-Watcher的特性" class="headerlink" title="3. Watcher的特性"></a>3. Watcher的特性</h5><ol>
+<li>Watcher是一次性的，一旦触发便会被移出，再次使用需要重新注册</li>
+<li>Watcher是串行执行的，因此回调逻辑不宜过重（只有回调后客户端才能观察到新的数据状态）</li>
+<li>Watcher只有在当前session彻底失效后才会无效，若在session有效期内快速重连成功，Watcher仍能发挥作用</li>
+</ol>
+<h4 id="ZooKeeper应用实例"><a href="#ZooKeeper应用实例" class="headerlink" title="ZooKeeper应用实例"></a>ZooKeeper应用实例</h4><h5 id="1-作为配置中心——事件监听机制的应用"><a href="#1-作为配置中心——事件监听机制的应用" class="headerlink" title="1. 作为配置中心——事件监听机制的应用"></a>1. 作为配置中心——事件监听机制的应用</h5><p>&emsp;&emsp;设计思路：</p>
+<ol>
+<li>在ZooKeeper中建立一个根节点，比如<code>/CONFIG</code>，代表某个配置文件</li>
+<li>将配置文件中的信息作为根节点的子节点存储，比如配置项<code>timeout=3000</code>，在Zookeeper中展现为：<code>/CONFIG/timeout</code> ，节点内容是3000</li>
+<li>所有使用到该配置信息的应用集成ZooKeeper并监控<code>/CONFIG</code>的状态，一旦配置信息也就是子节点发生变化，每个应用就会收到ZK的通知</li>
+<li>从ZK中获取新的配置信息应用到系统中</li>
+</ol>
+<p><code>Srping Cloud Zookeeper Config</code>就是基于这种思路构建的。</p>
+<h5 id="2-分布式ID生成器"><a href="#2-分布式ID生成器" class="headerlink" title="2. 分布式ID生成器"></a>2. 分布式ID生成器</h5><p>&emsp;&emsp;基于持久有序节点：</p>
+<ol>
+<li>在ZooKeeper中建立一个持久有序的节点，比如<code>/id</code>，ZK会返回<code>节点名 + 递增序号</code>作为最终节点名</li>
+<li>取出递增序号返回，并删除前一个生成的节点，也就是序号比当前低的那个节点</li>
+</ol>
+<p>&emsp;&emsp;基于dataVersion：</p>
+<ol>
+<li>在ZooKeeper中建立一个持久节点，比如<code>/id</code></li>
+<li>使用<code>set</code>命令更新节点值，返回新的dataVersion</li>
+</ol>
+<h5 id="3-分布式锁"><a href="#3-分布式锁" class="headerlink" title="3. 分布式锁"></a>3. 分布式锁</h5><p>&emsp;&emsp;设计思路</p>
+<ol>
+<li>在ZooKeeper中建立一个持久节点，比如<code>/locks</code>，每个客户端在这个节点下都各自创建一个临时有序节点，比如<code>/locks/lock0000x</code></li>
+<li>客户端取得<code>/locks</code>下的所有子节点并进行排序，判断排在第一位的是不是自己创建的节点，如果是，表示获得锁成功</li>
+<li>如果不是，则监听前一个节点，比如节点是<code>/locks/lock0003</code>那么就监听<code>/locks/lock0002</code></li>
+<li>当前一个节点对应的客户端完成了工作释放了锁，也就是删除了它所创建的节点，将会触发监听客户端的逻辑</li>
+<li>监听客户端回到步骤2，再次判断自身是否获得了锁</li>
+</ol>
+<p>这种思路创建的是<code>fair lock</code>。</p>
+<p>创建临时节点可以保证在故障时也可以释放锁，比如客户端a获得了锁后没来得及释放就宕机了，如果是持久节点那就永远不能释放了，而如果是临时节点，在ZK通过心跳机制检测到客户端a下线，可以关闭会话释放临时节点。</p>
+<p>在步骤2-3中获取子节点列表与设置监听这两步操作的原子性问题。考虑这样一个场景：客户端a对应子节点为/locks/lock0001，客户端b对应子节点为/locks/lock0002，客户端b获取子节点列表时发现自己不是序号最小的，但是在设置监听器前客户端a完成业务流程删除了子节点/locks/lock0001，客户端b设置的监听器岂不是丢失了这个事件从而导致永远等待了？这个问题不存在的。因为zookeeper提供的API中设置监听器的操作与读操作是原子执行的，也就是说在读子节点列表时同时设置监听器，保证不会丢失事件。</p>
+<h4 id="ZooKeeper监控命令"><a href="#ZooKeeper监控命令" class="headerlink" title="ZooKeeper监控命令"></a>ZooKeeper监控命令</h4><p>&emsp;&emsp;ZooKeeper支持某些4字命令与其交互，这些命令大多是查询命令，用来获取ZooKeeper服务的当前状态及相关信息，可以通过<code>telnet</code>或<code>nc</code>向ZooKeeper提交相应命令。</p>
+<figure class="highlight properties"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 在zoo.cfg中添加以支持4字命令</span></span><br><span class="line"><span class="meta">4lw.commands.whitelist</span>=<span class="string">*</span></span><br></pre></td></tr></table></figure>
+
+<h5 id="1-conf——输出ZK-server的详细配置信息"><a href="#1-conf——输出ZK-server的详细配置信息" class="headerlink" title="1. conf——输出ZK server的详细配置信息"></a>1. conf——输出ZK server的详细配置信息</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;</span><span class="bash"> $ telnet 127.0.0.1 2181                                                                                         </span></span><br><span class="line">Trying 127.0.0.1...</span><br><span class="line">Connected to 127.0.0.1.</span><br><span class="line">Escape character is &#x27;^]&#x27;.</span><br><span class="line">conf</span><br><span class="line">clientPort=2181 # 客户端端口号</span><br><span class="line">secureClientPort=-1 # ssl连接下的端口号</span><br><span class="line">dataDir=/data/version-2 # 数据快照文件目录</span><br><span class="line">dataDirSize=67108880 # 数据文件夹大小</span><br><span class="line">dataLogDir=/datalog/version-2 # 事务日志文件目录</span><br><span class="line">dataLogSize=3328 # 日志大小</span><br><span class="line">tickTime=2000 # 心跳间隔，毫秒</span><br><span class="line">maxClientCnxns=60 # 最大连接数</span><br><span class="line">minSessionTimeout=4000 # 最小session超时时间，默认tickTime * 2</span><br><span class="line">maxSessionTimeout=40000 # 最大session超时时间，默认tickTime * 20</span><br><span class="line">clientPortListenBacklog=-1 </span><br><span class="line">serverId=0 # 服务编号</span><br></pre></td></tr></table></figure>
+
+<h5 id="2-cons-列出所有连接到ZK-servr的会话的详细信息"><a href="#2-cons-列出所有连接到ZK-servr的会话的详细信息" class="headerlink" title="2. cons 列出所有连接到ZK servr的会话的详细信息"></a>2. cons 列出所有连接到ZK servr的会话的详细信息</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> connections</span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash"> $ telnet 127.0.0.1 2181                                                                                         </span></span><br><span class="line">Trying 127.0.0.1...</span><br><span class="line">Connected to 127.0.0.1.</span><br><span class="line">Escape character is &#x27;^]&#x27;.</span><br><span class="line">cons</span><br><span class="line"> /38.174.3.122:3341[0](queued=0,recved=1,sent=0)</span><br><span class="line">Connection closed by foreign host.</span><br><span class="line"> </span><br><span class="line"><span class="meta">#</span><span class="bash"> 38.174.3.122 客户端ip</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> 3341 端口</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> queued 等待被处理的请求数，请求缓存在队列中</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> recved 收到的数据包数量</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> send 发送的数据包数量</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> sid 会话id</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> lop 最后的操作，GETD获取数据 DELE删除节点 CREA创建节点</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> est 连接建立的时间戳</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> to 超时时间</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> lcxid 当前会话的操作id</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> lzxid 当前会话中最大的事务id</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> lresp 最后一次响应时间戳</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> llat 最新的延迟</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> minlat 最小延迟</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> maxlat 最大延迟</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> avglat 平均延迟</span></span><br></pre></td></tr></table></figure>
+
+<h5 id="3-crst——重置所有连接到ZK-server的会话信息"><a href="#3-crst——重置所有连接到ZK-server的会话信息" class="headerlink" title="3. crst——重置所有连接到ZK server的会话信息"></a>3. crst——重置所有连接到ZK server的会话信息</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> connection reset</span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash"> $ telnet 127.0.0.1 2181                                                                                         </span></span><br><span class="line">Trying 127.0.0.1...</span><br><span class="line">Connected 127.0.0.1.</span><br><span class="line">Escape character is &#x27;^]&#x27;.</span><br><span class="line">crst</span><br><span class="line">Connection stats reset.</span><br><span class="line">Connection closed by foreign host.</span><br></pre></td></tr></table></figure>
+
+<h5 id="4-dump-列出所有未经处理的会话和临时节点"><a href="#4-dump-列出所有未经处理的会话和临时节点" class="headerlink" title="4. dump 列出所有未经处理的会话和临时节点"></a>4. dump 列出所有未经处理的会话和临时节点</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;</span><span class="bash"> $ telnet 127.0.0.1 2181                                                                                         </span></span><br><span class="line">Trying 127.0.0.1...</span><br><span class="line">Connected 127.0.0.1.</span><br><span class="line">Escape character is &#x27;^]&#x27;.</span><br><span class="line">dump</span><br><span class="line">SessionTracker dump:</span><br><span class="line">Session Sets (0)/(0):</span><br><span class="line">ephemeral nodes dump:</span><br><span class="line">Sessions with Ephemerals (0):</span><br><span class="line">Connections dump:</span><br><span class="line">Connections Sets (2)/(1):</span><br><span class="line">0 expire at Sun Feb 21 15:54:52 CST 2021:</span><br><span class="line">1 expire at Sun Feb 21 15:55:02 CST 2021:</span><br><span class="line">        ip: /38.174.3.122:3592 sessionId: 0x0</span><br><span class="line">Connection closed by foreign host.</span><br></pre></td></tr></table></figure>
+
+<h5 id="5-envi-输出服务器环境的详细信息"><a href="#5-envi-输出服务器环境的详细信息" class="headerlink" title="5. envi 输出服务器环境的详细信息"></a>5. envi 输出服务器环境的详细信息</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;</span><span class="bash"> $ telnet 127.0.0.1 2181                                                                                         </span></span><br><span class="line">Trying 127.0.0.1...</span><br><span class="line">Connected 127.0.0.1.</span><br><span class="line">Escape character is &#x27;^]&#x27;.</span><br><span class="line">envi</span><br><span class="line">Environment:</span><br><span class="line">zookeeper.version=3.6.2--803c7f1a12f85978cb049af5e4ef23bd8b688715, built on 09/04/2020 12:44 GMT</span><br><span class="line">host.name=a4e7858eb255</span><br><span class="line">java.version=11.0.9.1</span><br><span class="line">java.vendor=Oracle Corporation</span><br><span class="line">java.home=/usr/local/openjdk-11</span><br><span class="line">.....</span><br><span class="line">os.name=Linux</span><br><span class="line">os.arch=amd64</span><br><span class="line">os.version=4.18.0-147.5.1.el8_1.x86_64</span><br><span class="line">user.name=zookeeper</span><br><span class="line">user.home=/home/zookeeper</span><br><span class="line">user.dir=/apache-zookeeper-3.6.2-bin</span><br><span class="line">os.memory.free=107MB</span><br><span class="line">os.memory.max=1000MB</span><br><span class="line">os.memory.total=118MB</span><br><span class="line">Connection closed by foreign host.</span><br></pre></td></tr></table></figure>
+
+<h5 id="6-ruok-测试ZK-server是否处于正确运行状态"><a href="#6-ruok-测试ZK-server是否处于正确运行状态" class="headerlink" title="6. ruok 测试ZK server是否处于正确运行状态"></a>6. ruok 测试ZK server是否处于正确运行状态</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> are u ok</span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash"> $ telnet 127.0.0.1 2181                                                                                         </span></span><br><span class="line">Trying 127.0.0.1...</span><br><span class="line">Connected 127.0.0.1.</span><br><span class="line">Escape character is &#x27;^]&#x27;.</span><br><span class="line">ruok</span><br><span class="line">imok # 删除imok表示正确运行，其它失败</span><br><span class="line">Connection closed by foreign host.</span><br></pre></td></tr></table></figure>
+
+<h5 id="7-stat-输出ZK-server的详细信息"><a href="#7-stat-输出ZK-server的详细信息" class="headerlink" title="7. stat 输出ZK server的详细信息"></a>7. stat 输出ZK server的详细信息</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;</span><span class="bash"> $ telnet 127.0.0.1 2181                                                                                         </span></span><br><span class="line">Trying 127.0.0.1...</span><br><span class="line">Connected 127.0.0.1.</span><br><span class="line">Escape character is &#x27;^]&#x27;.</span><br><span class="line">stat</span><br><span class="line">Zookeeper version: 3.6.2--803c7f1a12f85978cb049af5e4ef23bd8b688715, built on 09/04/2020 12:44 GMT</span><br><span class="line">Clients:</span><br><span class="line"> /38.174.3.122:3744[0](queued=0,recved=1,sent=0)</span><br><span class="line"></span><br><span class="line">Latency min/avg/max: 0/0.0/0</span><br><span class="line">Received: 8</span><br><span class="line">Sent: 7</span><br><span class="line">Connections: 1</span><br><span class="line">Outstanding: 0 # 积压的、未处理的请求数</span><br><span class="line">Zxid: 0x2c</span><br><span class="line">Mode: standalone</span><br><span class="line">Node count: 14</span><br><span class="line">Connection closed by foreign host.</span><br></pre></td></tr></table></figure>
+
+<h5 id="8-srst-重置ZK-server状态"><a href="#8-srst-重置ZK-server状态" class="headerlink" title="8. srst 重置ZK server状态"></a>8. srst 重置ZK server状态</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> server reset</span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash"> $ telnet 127.0.0.1 2181                                                                                         </span></span><br><span class="line">Trying 127.0.0.1...</span><br><span class="line">Connected 127.0.0.1.</span><br><span class="line">Escape character is &#x27;^]&#x27;.</span><br><span class="line">srst</span><br><span class="line">Server stats reset.</span><br><span class="line">Connection closed by foreign host.</span><br></pre></td></tr></table></figure>
+
+<h5 id="9-wchs-输出ZK-server中watcher的简洁信息"><a href="#9-wchs-输出ZK-server中watcher的简洁信息" class="headerlink" title="9. wchs 输出ZK server中watcher的简洁信息"></a>9. wchs 输出ZK server中watcher的简洁信息</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> watcher <span class="built_in">stat</span>?</span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash"> $ telnet 127.0.0.1 2181                                                                                         </span></span><br><span class="line">Trying 127.0.0.1...</span><br><span class="line">Connected 127.0.0.1.</span><br><span class="line">Escape character is &#x27;^]&#x27;.</span><br><span class="line">wchs</span><br><span class="line">2 connections watching 2 paths</span><br><span class="line">Total watches:2 # 两个连接有两个节点创建了监听器，总数量是2</span><br><span class="line">Connection closed by foreign host.</span><br></pre></td></tr></table></figure>
+
+<h5 id="10-wchc-通过会话分组，列出被watch的所有节点"><a href="#10-wchc-通过会话分组，列出被watch的所有节点" class="headerlink" title="10. wchc 通过会话分组，列出被watch的所有节点"></a>10. wchc 通过会话分组，列出被watch的所有节点</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> watcher category?</span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash"> $ telnet 127.0.0.1 2181                                                                                         </span></span><br><span class="line">Trying 127.0.0.1...</span><br><span class="line">Connected 127.0.0.1.</span><br><span class="line">Escape character is &#x27;^]&#x27;.</span><br><span class="line">wchc</span><br><span class="line">0x16fa86ab56350002 # 会话id</span><br><span class="line">        /n0 # 节点列表</span><br><span class="line">        /n1</span><br><span class="line">0x16fa86ab56350003</span><br><span class="line">        /n2</span><br><span class="line">        /n3</span><br><span class="line">Connection closed by foreign host.</span><br></pre></td></tr></table></figure>
+
+<h5 id="11-wchp-通过节点路径分组，列出被watch的所有节点"><a href="#11-wchp-通过节点路径分组，列出被watch的所有节点" class="headerlink" title="11. wchp 通过节点路径分组，列出被watch的所有节点"></a>11. wchp 通过节点路径分组，列出被watch的所有节点</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> watcher category?</span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash"> $ telnet 127.0.0.1 2181                                                                                         </span></span><br><span class="line">Trying 127.0.0.1...</span><br><span class="line">Connected 127.0.0.1.</span><br><span class="line">Escape character is &#x27;^]&#x27;.</span><br><span class="line">wchc</span><br><span class="line">/n0 # 节点路径</span><br><span class="line">        0x16fa86ab56350002 # 会话id</span><br><span class="line">/n1</span><br><span class="line">        0x16fa86ab56350002</span><br><span class="line">/n2</span><br><span class="line">        0x16fa86ab56350003</span><br><span class="line">/n3</span><br><span class="line">        0x16fa86ab56350004</span><br><span class="line">Connection closed by foreign host.</span><br></pre></td></tr></table></figure>
+
+<h5 id="12-mntr-输出集群的健康状态"><a href="#12-mntr-输出集群的健康状态" class="headerlink" title="12. mntr 输出集群的健康状态"></a>12. mntr 输出集群的健康状态</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;</span><span class="bash"> $ telnet 127.0.0.1 2181                                                                                         </span></span><br><span class="line">Trying 127.0.0.1...</span><br><span class="line">Connected 127.0.0.1.</span><br><span class="line">Escape character is &#x27;^]&#x27;.</span><br><span class="line">mntr</span><br><span class="line">zk_version      3.6.2--803c7f1a12f85978cb049af5e4ef23bd8b688715, built on 09/04/2020 12:44 GMT</span><br><span class="line">zk_server_state standalone</span><br><span class="line">zk_ephemerals_count     0</span><br><span class="line">zk_min_latency  0</span><br><span class="line">zk_avg_latency  0.0</span><br><span class="line">zk_num_alive_connections        1</span><br><span class="line">zk_max_file_descriptor_count    1048576</span><br><span class="line">...</span><br><span class="line">Connection closed by foreign host.</span><br></pre></td></tr></table></figure>
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/10/20/nginx-tutorial/" rel="prev" title="Nginx基础使用">
+      <i class="fa fa-chevron-left"></i> Nginx基础使用
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-4"><a class="nav-link" href="#ZooKeeper%E7%9A%84%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text">ZooKeeper的应用场景</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Docker%E5%AE%89%E8%A3%85ZooKeeper"><span class="nav-number">2.</span> <span class="nav-text">Docker安装ZooKeeper</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#ZooKeeper%E7%9A%84%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B"><span class="nav-number">3.</span> <span class="nav-text">ZooKeeper的数据模型</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#ZooKeeper%E5%B8%B8%E7%94%A8%E5%91%BD%E4%BB%A4%EF%BC%88ZooKeeper-CLI-version-3-6-2%EF%BC%89"><span class="nav-number">4.</span> <span class="nav-text">ZooKeeper常用命令（ZooKeeper CLI version: 3.6.2）</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-create-%E5%88%9B%E5%BB%BA%E8%8A%82%E7%82%B9"><span class="nav-number">4.1.</span> <span class="nav-text">1. create 创建节点</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-set-%E6%9B%B4%E6%96%B0%E8%8A%82%E7%82%B9"><span class="nav-number">4.2.</span> <span class="nav-text">2. set 更新节点</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-delete-%E5%88%A0%E9%99%A4%E8%8A%82%E7%82%B9%EF%BC%88%E4%BB%85%E5%9C%A8%E8%8A%82%E7%82%B9%E4%B8%BA%E5%8F%B6%E5%AD%90%E8%8A%82%E7%82%B9%E6%97%B6%E6%9C%89%E6%95%88%EF%BC%89"><span class="nav-number">4.3.</span> <span class="nav-text">3. delete 删除节点（仅在节点为叶子节点时有效）</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#4-deleteall-rmr-%E5%88%A0%E9%99%A4%E8%8A%82%E7%82%B9%EF%BC%88%E5%8D%B3%E6%98%AF%E6%9C%89%E5%AD%90%E8%8A%82%E7%82%B9%E4%B9%9F%E5%8F%AF%E4%BB%A5%E5%88%A0%E9%99%A4%EF%BC%89"><span class="nav-number">4.4.</span> <span class="nav-text">4. deleteall &#x2F; rmr 删除节点（即是有子节点也可以删除）</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#5-get-%E6%9F%A5%E7%9C%8B%E8%8A%82%E7%82%B9"><span class="nav-number">4.5.</span> <span class="nav-text">5. get 查看节点</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#6-stat-%E6%98%BE%E7%A4%BA%E7%8A%B6%E6%80%81%EF%BC%88%E5%85%83%E6%95%B0%E6%8D%AE%EF%BC%89"><span class="nav-number">4.6.</span> <span class="nav-text">6. stat 显示状态（元数据）</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#7-getAllChildrenNumber-%E8%8E%B7%E5%8F%96%E6%8C%87%E5%AE%9A%E8%8A%82%E7%82%B9%E7%9A%84%E5%AD%90%E8%8A%82%E7%82%B9%E6%95%B0%E9%87%8F"><span class="nav-number">4.7.</span> <span class="nav-text">7. getAllChildrenNumber 获取指定节点的子节点数量</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#8-getEphemerals-%E8%8E%B7%E5%8F%96%E5%BD%93%E5%89%8D%E4%BC%9A%E8%AF%9D%E4%B8%8B%E7%9A%84%E6%89%80%E6%9C%89%E4%B8%B4%E6%97%B6%E8%8A%82%E7%82%B9"><span class="nav-number">4.8.</span> <span class="nav-text">8. getEphemerals 获取当前会话下的所有临时节点</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#9-ls-%E6%98%BE%E7%A4%BA%E5%AD%90%E8%8A%82%E7%82%B9%E5%88%97%E8%A1%A8"><span class="nav-number">4.9.</span> <span class="nav-text">9.  ls 显示子节点列表</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#ZooKeeper%E7%9A%84%E6%9D%83%E9%99%90%E6%8E%A7%E5%88%B6"><span class="nav-number">5.</span> <span class="nav-text">ZooKeeper的权限控制</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-setAcl-%E8%AE%BE%E7%BD%AE%E8%8A%82%E7%82%B9%E6%9D%83%E9%99%90"><span class="nav-number">5.1.</span> <span class="nav-text">1. setAcl 设置节点权限</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-getAcl-%E8%8E%B7%E5%8F%96%E8%8A%82%E7%82%B9%E6%9D%83%E9%99%90"><span class="nav-number">5.2.</span> <span class="nav-text">2. getAcl 获取节点权限</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-addauth-%E6%B7%BB%E5%8A%A0%E4%B8%80%E4%B8%AA%E6%8E%88%E6%9D%83%E7%94%A8%E6%88%B7"><span class="nav-number">5.3.</span> <span class="nav-text">3. addauth 添加一个授权用户</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#ZooKeeper%E4%BA%8B%E4%BB%B6%E7%9B%91%E5%90%AC%E6%9C%BA%E5%88%B6"><span class="nav-number">6.</span> <span class="nav-text">ZooKeeper事件监听机制</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-Watcher%E6%A6%82%E5%BF%B5"><span class="nav-number">6.1.</span> <span class="nav-text">1. Watcher概念</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-Watcher%E6%9E%B6%E6%9E%84"><span class="nav-number">6.2.</span> <span class="nav-text">2. Watcher架构</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-Watcher%E7%9A%84%E7%89%B9%E6%80%A7"><span class="nav-number">6.3.</span> <span class="nav-text">3. Watcher的特性</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#ZooKeeper%E5%BA%94%E7%94%A8%E5%AE%9E%E4%BE%8B"><span class="nav-number">7.</span> <span class="nav-text">ZooKeeper应用实例</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-%E4%BD%9C%E4%B8%BA%E9%85%8D%E7%BD%AE%E4%B8%AD%E5%BF%83%E2%80%94%E2%80%94%E4%BA%8B%E4%BB%B6%E7%9B%91%E5%90%AC%E6%9C%BA%E5%88%B6%E7%9A%84%E5%BA%94%E7%94%A8"><span class="nav-number">7.1.</span> <span class="nav-text">1. 作为配置中心——事件监听机制的应用</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-%E5%88%86%E5%B8%83%E5%BC%8FID%E7%94%9F%E6%88%90%E5%99%A8"><span class="nav-number">7.2.</span> <span class="nav-text">2. 分布式ID生成器</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81"><span class="nav-number">7.3.</span> <span class="nav-text">3. 分布式锁</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#ZooKeeper%E7%9B%91%E6%8E%A7%E5%91%BD%E4%BB%A4"><span class="nav-number">8.</span> <span class="nav-text">ZooKeeper监控命令</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-conf%E2%80%94%E2%80%94%E8%BE%93%E5%87%BAZK-server%E7%9A%84%E8%AF%A6%E7%BB%86%E9%85%8D%E7%BD%AE%E4%BF%A1%E6%81%AF"><span class="nav-number">8.1.</span> <span class="nav-text">1. conf——输出ZK server的详细配置信息</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-cons-%E5%88%97%E5%87%BA%E6%89%80%E6%9C%89%E8%BF%9E%E6%8E%A5%E5%88%B0ZK-servr%E7%9A%84%E4%BC%9A%E8%AF%9D%E7%9A%84%E8%AF%A6%E7%BB%86%E4%BF%A1%E6%81%AF"><span class="nav-number">8.2.</span> <span class="nav-text">2. cons 列出所有连接到ZK servr的会话的详细信息</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-crst%E2%80%94%E2%80%94%E9%87%8D%E7%BD%AE%E6%89%80%E6%9C%89%E8%BF%9E%E6%8E%A5%E5%88%B0ZK-server%E7%9A%84%E4%BC%9A%E8%AF%9D%E4%BF%A1%E6%81%AF"><span class="nav-number">8.3.</span> <span class="nav-text">3. crst——重置所有连接到ZK server的会话信息</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#4-dump-%E5%88%97%E5%87%BA%E6%89%80%E6%9C%89%E6%9C%AA%E7%BB%8F%E5%A4%84%E7%90%86%E7%9A%84%E4%BC%9A%E8%AF%9D%E5%92%8C%E4%B8%B4%E6%97%B6%E8%8A%82%E7%82%B9"><span class="nav-number">8.4.</span> <span class="nav-text">4. dump 列出所有未经处理的会话和临时节点</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#5-envi-%E8%BE%93%E5%87%BA%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%8E%AF%E5%A2%83%E7%9A%84%E8%AF%A6%E7%BB%86%E4%BF%A1%E6%81%AF"><span class="nav-number">8.5.</span> <span class="nav-text">5. envi 输出服务器环境的详细信息</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#6-ruok-%E6%B5%8B%E8%AF%95ZK-server%E6%98%AF%E5%90%A6%E5%A4%84%E4%BA%8E%E6%AD%A3%E7%A1%AE%E8%BF%90%E8%A1%8C%E7%8A%B6%E6%80%81"><span class="nav-number">8.6.</span> <span class="nav-text">6. ruok 测试ZK server是否处于正确运行状态</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#7-stat-%E8%BE%93%E5%87%BAZK-server%E7%9A%84%E8%AF%A6%E7%BB%86%E4%BF%A1%E6%81%AF"><span class="nav-number">8.7.</span> <span class="nav-text">7. stat 输出ZK server的详细信息</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#8-srst-%E9%87%8D%E7%BD%AEZK-server%E7%8A%B6%E6%80%81"><span class="nav-number">8.8.</span> <span class="nav-text">8. srst 重置ZK server状态</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#9-wchs-%E8%BE%93%E5%87%BAZK-server%E4%B8%ADwatcher%E7%9A%84%E7%AE%80%E6%B4%81%E4%BF%A1%E6%81%AF"><span class="nav-number">8.9.</span> <span class="nav-text">9. wchs 输出ZK server中watcher的简洁信息</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#10-wchc-%E9%80%9A%E8%BF%87%E4%BC%9A%E8%AF%9D%E5%88%86%E7%BB%84%EF%BC%8C%E5%88%97%E5%87%BA%E8%A2%ABwatch%E7%9A%84%E6%89%80%E6%9C%89%E8%8A%82%E7%82%B9"><span class="nav-number">8.10.</span> <span class="nav-text">10. wchc 通过会话分组，列出被watch的所有节点</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#11-wchp-%E9%80%9A%E8%BF%87%E8%8A%82%E7%82%B9%E8%B7%AF%E5%BE%84%E5%88%86%E7%BB%84%EF%BC%8C%E5%88%97%E5%87%BA%E8%A2%ABwatch%E7%9A%84%E6%89%80%E6%9C%89%E8%8A%82%E7%82%B9"><span class="nav-number">8.11.</span> <span class="nav-text">11. wchp 通过节点路径分组，列出被watch的所有节点</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#12-mntr-%E8%BE%93%E5%87%BA%E9%9B%86%E7%BE%A4%E7%9A%84%E5%81%A5%E5%BA%B7%E7%8A%B6%E6%80%81"><span class="nav-number">8.12.</span> <span class="nav-text">12. mntr 输出集群的健康状态</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Archer"
+      src="/images/yml.png">
+  <p class="site-author-name" itemprop="name">Archer</p>
+  <div class="site-description" itemprop="description">动漫、代码和篮球，就是人生。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">6</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">5</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+  <div class="beian"><a href="http://www.beian.miit.gov.cn/" rel="noopener" target="_blank">浙ICP备 </a>
+      <img src="/images/beian.png" style="display: inline-block;"><a href="http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=2020032452" rel="noopener" target="_blank">2020032452 </a>
+  </div>
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Archer</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('https://cdn.jsdelivr.net/npm/valine@1.4.14/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'wDEP5aDWGvNhbXet3IgTy7b2-gzGzoHsz',
+      appKey     : 'DO2NJ8s5bWUF2yFQRlCvtEnT',
+      placeholder: "Just go go",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : false,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>
